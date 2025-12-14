@@ -32,7 +32,7 @@ build-all:
 	@echo "Building platform..."
 	cd platform && $(MAKE) build
 	@echo "Building appcat-runtime..."
-	cd appcat-runtime && $(MAKE) build
+	cd appcat-runtime && $(MAKE) docker-push
 	@echo "Build complete!"
 
 clean:
