@@ -1,4 +1,4 @@
-apiVersion: apiextensions.crossplane.io/v1
+apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
   name: xvshnredis.appcat.vshn.io
@@ -7,6 +7,9 @@ spec:
   names:
     kind: XVSHNRedis
     plural: xvshnredis
+  scope: Namespaced
+  defaultCompositionRef:
+    name: xvshnredis.appcat.vshn.io
   versions:
   - name: v1alpha1
     served: true

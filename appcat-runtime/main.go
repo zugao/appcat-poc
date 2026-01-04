@@ -3,35 +3,43 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net"
+	"os"
 
-	fnv1 "github.com/crossplane/function-sdk-go/proto/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
+	function "github.com/crossplane/function-sdk-go"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func main() {
 	addr := flag.String("addr", ":9443", "gRPC listen address")
+	tlsDirFlag := flag.String("tls-dir", "", "Directory containing tls.crt, tls.key, ca.crt (defaults to TLS_SERVER_CERTS_DIR)")
 	flag.Parse()
 
-	lis, err := net.Listen("tcp", *addr)
-	if err != nil {
-		panic(fmt.Errorf("listen: %w", err))
+	tlsDir := *tlsDirFlag
+	if tlsDir == "" {
+		tlsDir = os.Getenv("TLS_SERVER_CERTS_DIR")
+	}
+	if tlsDir == "" {
+		panic("TLS server cert directory not set; set --tls-dir or TLS_SERVER_CERTS_DIR")
 	}
 
-	// Create gRPC server
-	s := grpc.NewServer()
+	// Health server allows Crossplane to probe readiness
+	healthSrv := health.NewServer()
+	healthSrv.SetServingStatus("function-appcat-poc", healthpb.HealthCheckResponse_SERVING)
+	healthSrv.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	// Create and register manager
 	mgr := NewManager(zap.New())
-	fnv1.RegisterFunctionRunnerServiceServer(s, mgr)
 
-	// Enable reflection for debugging
-	reflection.Register(s)
+	opts := []function.ServeOption{
+		function.Listen("tcp", *addr),
+		function.MTLSCertificates(tlsDir),
+		function.WithHealthServer(healthSrv),
+	}
 
-	fmt.Printf("Starting gRPC server on %s\n", *addr)
-	if err := s.Serve(lis); err != nil {
+	fmt.Printf("Starting gRPC server on %s (mTLS dir: %s)\n", *addr, tlsDir)
+	if err := function.Serve(mgr, opts...); err != nil {
 		panic(fmt.Errorf("serve: %w", err))
 	}
 }

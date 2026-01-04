@@ -3,7 +3,7 @@
 
 # XRD for VSHNRedis Composite Resource
 xrd = {
-    apiVersion = "apiextensions.crossplane.io/v1"
+    apiVersion = "apiextensions.crossplane.io/v2"
     kind = "CompositeResourceDefinition"
     metadata = {
         name = "xvshnredis.appcat.vshn.io"
@@ -14,7 +14,10 @@ xrd = {
             kind = "XVSHNRedis"
             plural = "xvshnredis"
         }
-        # Crossplane 2.0: Composites
+        scope = "Namespaced"
+        defaultCompositionRef = {
+            name = "xvshnredis.appcat.vshn.io"
+        }
         versions = [
             {
                 name = "v1alpha1"

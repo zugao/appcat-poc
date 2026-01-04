@@ -1,4 +1,4 @@
-.PHONY: help build-all clean kind-create kind-delete crossplane-install setup deploy-platform deploy-service deploy-all test
+.PHONY: help build-all build-all-push clean kind-create kind-delete crossplane-install setup deploy-platform deploy-service deploy-all test
 
 # Default target
 help:
@@ -10,7 +10,8 @@ help:
 	@echo "    setup                - Create cluster + install Crossplane"
 	@echo ""
 	@echo "  Build:"
-	@echo "    build-all            - Build service, platform, and runtime layers"
+	@echo "    build-all            - Build all layers and load runtime into Kind"
+	@echo "    build-all-push       - Build all layers and push runtime to registry"
 	@echo "    clean                - Clean all build artifacts"
 	@echo ""
 	@echo "  Deploy:"
@@ -31,9 +32,19 @@ build-all:
 	cd redis-service && $(MAKE) build
 	@echo "Building platform..."
 	cd platform && $(MAKE) build
-	@echo "Building appcat-runtime..."
-	cd appcat-runtime && $(MAKE) docker-push
-	@echo "Build complete!"
+	@echo "Building appcat-runtime and loading into Kind..."
+	cd appcat-runtime && $(MAKE) kind-load
+	@echo "✅ Build complete!"
+
+build-all-push:
+	@echo "Building all layers and pushing to registry..."
+	@echo "Building redis-service..."
+	cd redis-service && $(MAKE) build
+	@echo "Building platform..."
+	cd platform && $(MAKE) build
+	@echo "Building and pushing appcat-runtime..."
+	cd appcat-runtime && $(MAKE) xpkg-push
+	@echo "✅ Build and push complete!"
 
 clean:
 	@echo "Cleaning build artifacts..."
