@@ -2,7 +2,8 @@
 
 build:
 	@echo "Compiling KCL service configuration..."
-	kcl run -o rendered/
+	mkdir -p rendered
+	kcl run main.k -D output_type=yaml -o rendered/redis-service.yaml
 
 clean:
-	rm -rf rendered/
+	rm -rf rendered/*.yaml

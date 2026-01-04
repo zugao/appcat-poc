@@ -18,7 +18,7 @@ service_config = {
         }
     }
 
-    # Mapping: XRD spec field paths → Helm value paths
+    # Mapping: XRD spec field paths to Helm value paths
     # This tells the function how to inject user runtime parameters into helm values
     mapping = {
         "spec.size.cpu" = "master.resources.requests.cpu"

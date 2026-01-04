@@ -1,6 +1,6 @@
 # Main output file for redis-service
-# Outputs ONLY the XRD manifest
-# Service config data (chart, plans, defaultHelmValues) will be inlined in Composition by platform layer
+# Outputs the XRD and Composition manifests
+# Service config data (chart, plans, defaultHelmValues) is inlined in Composition
 
 import service
 

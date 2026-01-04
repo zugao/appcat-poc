@@ -1,10 +1,6 @@
 # Composition for VSHNRedis
 # Imports service config from redis-service repo to avoid duplication
 
-# Import service config from redis-service directory
-# KCL import syntax: import <module_path> [as <alias>]
-import ..redis_service.config as redis_config
-
 composition = {
     apiVersion = "apiextensions.crossplane.io/v1"
     kind = "Composition"
