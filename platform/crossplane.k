@@ -18,6 +18,6 @@ function_package = {
         name = "function-appcat-poc"
     }
     spec = {
-        package = "ghcr.io/zugao/function-appcat-poc:v0.1.2"
+        package = "ghcr.io/zugao/function-appcat-poc:v0.1.3"
     }
 }

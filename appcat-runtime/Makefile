@@ -1,7 +1,7 @@
 .PHONY: build docker-build docker-build-kind kind-load xpkg-build xpkg-push clean
 
 IMAGE ?= ghcr.io/zugao/function-appcat-poc
-TAG ?= v0.1.2
+TAG ?= v0.1.3
 KIND_CLUSTER ?= appcat-poc
 XPKG_OUTPUT ?= function-appcat-poc.xpkg
 
