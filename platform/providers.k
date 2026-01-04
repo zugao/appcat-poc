@@ -9,11 +9,12 @@ provider_kubernetes = {
         name = "provider-kubernetes"
     }
     spec = {
-        package = "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.15.0"
+        package = "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v1.2.0"
     }
 }
 
 # Helm Provider
+# Note: Using v0.19.0 for better Crossplane 2.0 compatibility
 provider_helm = {
     apiVersion = "pkg.crossplane.io/v1"
     kind = "Provider"
@@ -21,7 +22,7 @@ provider_helm = {
         name = "provider-helm"
     }
     spec = {
-        package = "xpkg.upbound.io/crossplane-contrib/provider-helm:v0.20.0"
+        package = "xpkg.upbound.io/crossplane-contrib/provider-helm:v1.0.6"
     }
 }
 

@@ -13,6 +13,7 @@ RUN mkdir /.cache && chmod -R g=u /.cache
 
 # Copy the binary
 COPY function-appcat-poc /usr/local/bin/
+COPY package.yaml /package.yaml
 
 # Make binary executable
 RUN chmod a+x /usr/local/bin/function-appcat-poc

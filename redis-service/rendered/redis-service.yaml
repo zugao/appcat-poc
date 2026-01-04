@@ -1,0 +1,76 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xvshnredis.appcat.vshn.io
+spec:
+  group: appcat.vshn.io
+  names:
+    kind: XVSHNRedis
+    plural: xvshnredis
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              size:
+                type: object
+                properties:
+                  cpu:
+                    type: string
+                    description: CPU request (e.g., '500m', '1000m')
+                  memory:
+                    type: string
+                    description: Memory request (e.g., '2Gi', '4Gi')
+                  disk:
+                    type: string
+                    description: Disk size (e.g., '16Gi', '32Gi')
+              replicas:
+                type: integer
+                description: Number of replicas
+                minimum: 1
+          status:
+            type: object
+            properties: {}
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xvshnredis.appcat.vshn.io
+  labels:
+    service: redis
+spec:
+  compositeTypeRef:
+    apiVersion: appcat.vshn.io/v1alpha1
+    kind: XVSHNRedis
+  mode: Pipeline
+  pipeline:
+  - step: render-redis
+    functionRef:
+      name: function-appcat-poc
+    input:
+      apiVersion: fn.appcat.vshn.io/v1alpha1
+      kind: AppCatServiceConfig
+      metadata:
+        name: redis-config
+        labels:
+          service: redis
+      data:
+        chart:
+          repository: https://charts.bitnami.com/bitnami
+          name: redis
+          defaultVersion: '18.0.0'
+        defaultHelmValues:
+          architecture: standalone
+          auth:
+            enabled: true
+        mapping:
+          spec.size.cpu: master.resources.requests.cpu
+          spec.size.memory: master.resources.requests.memory
+          spec.size.disk: master.persistence.size
+          spec.replicas: master.count

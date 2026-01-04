@@ -1,0 +1,5 @@
+[dependencies]
+  [dependencies.redis-service]
+    name = "redis-service"
+    full_name = "redis-service_0.1.0"
+    version = "0.1.0"

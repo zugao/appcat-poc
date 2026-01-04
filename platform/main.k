@@ -3,7 +3,6 @@
 
 import crossplane
 import providers
-import composition
 
 # Output all platform manifests
 [
@@ -13,5 +12,4 @@ import composition
     providers.provider_helm,
     providers.providerconfig_kubernetes,
     providers.providerconfig_helm,
-    composition.composition
 ]

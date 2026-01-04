@@ -1,6 +1,8 @@
 # Composition for VSHNRedis
 # Imports service config from redis-service repo to avoid duplication
 
+import config as redis_config
+
 composition = {
     apiVersion = "apiextensions.crossplane.io/v1"
     kind = "Composition"
@@ -25,9 +27,12 @@ composition = {
                 # INLINE input - imports service config from redis-service repo
                 input = {
                     apiVersion = "fn.appcat.vshn.io/v1alpha1"
-                    kind = "RedisServiceConfig"
+                    kind = "AppCatServiceConfig"
                     metadata = {
                         name = "redis-config"
+                        labels = {
+                            service = "redis"
+                        }
                     }
                     # Service config imported from redis-service/config.k
                     data = {

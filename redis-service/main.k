@@ -3,7 +3,8 @@
 # Service config data (chart, plans, defaultHelmValues) is inlined in Composition
 
 import service
+import composition
 
 # Output only the XRD
 # Config data is NOT output here - it's consumed by platform layer
-[service.xrd]
+[service.xrd, composition.composition]
