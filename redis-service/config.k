@@ -16,6 +16,10 @@ service_config = {
         auth = {
             enabled = True
         }
+        image = {
+            # Use a tag that is known to exist in Docker Hub; the chart's default tag was pruned
+            tag = "latest"
+        }
     }
 
     # Mapping: XRD spec field paths to Helm value paths

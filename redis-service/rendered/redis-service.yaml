@@ -72,6 +72,8 @@ spec:
           architecture: standalone
           auth:
             enabled: true
+          image:
+            tag: latest
         mapping:
           spec.size.cpu: master.resources.requests.cpu
           spec.size.memory: master.resources.requests.memory
