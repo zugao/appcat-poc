@@ -101,16 +101,6 @@ deploy-all: deploy-platform deploy-service
 # Test target
 test:
 	@echo "Creating test Redis instance..."
-	@cat <<EOF | kubectl apply -f -
-	apiVersion: appcat.vshn.io/v1alpha1
-	kind: XVSHNRedis
-	metadata:
-	  name: test-redis
-	spec:
-	  size:
-	    cpu: "500m"
-	    memory: "2Gi"
-	  replicas: 1
-	EOF
+	@kubectl apply -f examples/redis-instance.yaml
 	@echo "Test instance created!"
 	@echo "Check status with: kubectl get xvshnredis"

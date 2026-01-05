@@ -14,7 +14,7 @@ provider_kubernetes = {
 }
 
 # Helm Provider
-# Note: Using v0.19.0 for better Crossplane 2.0 compatibility
+# Note: Using v1.0.6 for better Crossplane 2.0 compatibility with namespace-scoped resources
 provider_helm = {
     apiVersion = "pkg.crossplane.io/v1"
     kind = "Provider"
@@ -23,6 +23,9 @@ provider_helm = {
     }
     spec = {
         package = "xpkg.upbound.io/crossplane-contrib/provider-helm:v1.0.6"
+        runtimeConfigRef = {
+            name = "provider-helm-runtime"
+        }
     }
 }
 
@@ -40,7 +43,7 @@ providerconfig_kubernetes = {
     }
 }
 
-# ProviderConfig for Helm (in-cluster)
+# ProviderConfig for Helm (in-cluster) - legacy cluster-scoped API
 providerconfig_helm = {
     apiVersion = "helm.crossplane.io/v1beta1"
     kind = "ProviderConfig"
@@ -50,6 +53,71 @@ providerconfig_helm = {
     spec = {
         credentials = {
             source = "InjectedIdentity"
+        }
+    }
+}
+
+# ClusterProviderConfig for Helm (in-cluster) - namespace-scoped API for Crossplane 2.0
+clusterproviderconfig_helm = {
+    apiVersion = "helm.m.crossplane.io/v1beta1"
+    kind = "ClusterProviderConfig"
+    metadata = {
+        name = "default"
+    }
+    spec = {
+        credentials = {
+            source = "InjectedIdentity"
+        }
+    }
+}
+
+# ServiceAccount for provider-helm
+# Custom service account with necessary RBAC permissions
+serviceaccount_helm = {
+    apiVersion = "v1"
+    kind = "ServiceAccount"
+    metadata = {
+        name = "provider-helm-sa"
+        namespace = "crossplane-system"
+    }
+}
+
+# RBAC ClusterRoleBinding for provider-helm
+# Grants permissions needed for namespace-scoped Releases to deploy Helm charts
+# Note: In production, use more restrictive RBAC. This grants cluster-admin for PoC.
+clusterrolebinding_helm = {
+    apiVersion = "rbac.authorization.k8s.io/v1"
+    kind = "ClusterRoleBinding"
+    metadata = {
+        name = "provider-helm-admin"
+    }
+    roleRef = {
+        apiGroup = "rbac.authorization.k8s.io"
+        kind = "ClusterRole"
+        name = "cluster-admin"
+    }
+    subjects = [
+        {
+            kind = "ServiceAccount"
+            name = "provider-helm-sa"
+            namespace = "crossplane-system"
+        }
+    ]
+}
+
+# DeploymentRuntimeConfig for provider-helm
+# Configures the provider to use the custom service account
+deploymentruntimeconfig_helm = {
+    apiVersion = "pkg.crossplane.io/v1beta1"
+    kind = "DeploymentRuntimeConfig"
+    metadata = {
+        name = "provider-helm-runtime"
+    }
+    spec = {
+        serviceAccountTemplate = {
+            metadata = {
+                name = "provider-helm-sa"
+            }
         }
     }
 }

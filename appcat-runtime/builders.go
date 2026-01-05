@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 
-	helmv1 "github.com/crossplane-contrib/provider-helm/apis/release/v1beta1"
+	helmv1 "github.com/crossplane-contrib/provider-helm/apis/namespaced/release/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -160,11 +160,12 @@ func ValuesFromConfig(cfg map[string]string, defaults map[string]any) map[string
 	return out
 }
 
-// HelmReleaseBuilder builds helm.crossplane.io/v1beta1 Release objects using fluent API
-// Note: HelmRelease is cluster-scoped, so it has no namespace in metadata.
-// Use WithTargetNamespace() to specify where the chart deploys.
+// HelmReleaseBuilder builds helm.m.crossplane.io/v1beta1 Release objects using fluent API
+// For namespace-scoped composites in Crossplane 2.0, HelmRelease must have a namespace.
+// Use WithNamespace() to set the resource namespace and WithTargetNamespace() for chart deployment.
 type HelmReleaseBuilder struct {
 	name            string
+	namespace       string
 	chartRepo       string
 	chartName       string
 	chartVersion    string
@@ -175,7 +176,6 @@ type HelmReleaseBuilder struct {
 }
 
 // NewHelmReleaseBuilder creates a new HelmRelease builder
-// Note: HelmRelease is cluster-scoped and has no namespace in metadata
 func NewHelmReleaseBuilder(name string) *HelmReleaseBuilder {
 	return &HelmReleaseBuilder{
 		name:        name,
@@ -183,6 +183,13 @@ func NewHelmReleaseBuilder(name string) *HelmReleaseBuilder {
 		labels:      make(map[string]string),
 		annotations: make(map[string]string),
 	}
+}
+
+// WithNamespace sets the namespace for the HelmRelease resource itself
+// Required for namespace-scoped composites in Crossplane 2.0
+func (b *HelmReleaseBuilder) WithNamespace(namespace string) *HelmReleaseBuilder {
+	b.namespace = namespace
+	return b
 }
 
 // WithChart sets the Helm chart repository, name, and version
@@ -242,11 +249,12 @@ func (b *HelmReleaseBuilder) Build() *helmv1.Release {
 
 	return &helmv1.Release{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "helm.crossplane.io/v1beta1",
+			APIVersion: "helm.m.crossplane.io/v1beta1",
 			Kind:       "Release",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        b.name,
+			Namespace:   b.namespace,
 			Labels:      b.labels,
 			Annotations: b.annotations,
 		},
@@ -257,7 +265,7 @@ func (b *HelmReleaseBuilder) Build() *helmv1.Release {
 					Name:       b.chartName,
 					Version:    b.chartVersion,
 				},
-				Namespace: b.targetNamespace,
+				SkipCreateNamespace: true,
 				ValuesSpec: helmv1.ValuesSpec{
 					Values: valuesRaw,
 				},

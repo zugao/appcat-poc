@@ -28,26 +28,27 @@ func generateResources(
 		return nil, fmt.Errorf("failed to get instance name: %w", err)
 	}
 
-	namespace := fmt.Sprintf("vshn-redis-%s", instanceName)
-	log.Info("Generating resources", "instance", instanceName, "namespace", namespace)
+	// Get composite namespace - all resources go in the same namespace for namespace-scoped composites
+	compositeNamespace, err := paved.GetString("metadata.namespace")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get composite namespace: %w", err)
+	}
+
+	// For namespace-scoped Releases, the Helm chart deploys to the same namespace as the Release resource
+	log.Info("Generating resources",
+		"instance", instanceName,
+		"compositeNamespace", compositeNamespace)
 
 	resources := make(map[string]*fnv1.Resource)
 
-	// 1. Generate Namespace
-	ns := NewNamespaceBuilder(namespace).
+	// 1. Generate Namespace - create as HelmRelease value, not as a managed resource
+	// (Namespaces are cluster-scoped and cannot be composed by namespace-scoped composites)
+
+	// 2. Generate Secret (for Redis password) in composite namespace
+	secret := NewSecretBuilder(fmt.Sprintf("%s-password", instanceName), compositeNamespace).
+		WithRandomPassword("password", 32).
 		WithLabel("app", "redis").
 		WithLabel("instance", instanceName).
-		Build()
-
-	nsResource, err := toFunctionResource(ns)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert namespace to function resource: %w", err)
-	}
-	resources["namespace"] = nsResource
-
-	// 2. Generate Secret (for Redis password)
-	secret := NewSecretBuilder(fmt.Sprintf("%s-password", instanceName), namespace).
-		WithRandomPassword("password", 32).
 		Build()
 
 	secretResource, err := toFunctionResource(secret)
@@ -82,7 +83,7 @@ func generateResources(
 		return nil, fmt.Errorf("helmValues not found in merged config")
 	}
 
-	// Inject secret reference into helm values
+	// Inject secret reference into helm values (secret is in same namespace as HelmRelease)
 	helmValues["auth"] = map[string]interface{}{
 		"enabled":                    true,
 		"existingSecret":             fmt.Sprintf("%s-password", instanceName),
@@ -92,11 +93,12 @@ func generateResources(
 	log.Info("Creating HelmRelease",
 		"chart", chartName,
 		"version", chartVersion,
-		"repository", chartRepo)
+		"repository", chartRepo,
+		"helmReleaseNamespace", compositeNamespace)
 
 	helmRelease := NewHelmReleaseBuilder(instanceName).
+		WithNamespace(compositeNamespace).
 		WithChart(chartRepo, chartName, chartVersion).
-		WithTargetNamespace(namespace).
 		WithValues(helmValues).
 		Build()
 

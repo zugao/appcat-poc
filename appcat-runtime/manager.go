@@ -83,9 +83,6 @@ func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest)
 			Ttl: durationpb.New(60 * time.Second),
 		},
 		Desired: &fnv1.State{
-			Composite: &fnv1.Resource{
-				Resource: composite.Resource,
-			},
 			Resources: resources,
 		},
 	}
