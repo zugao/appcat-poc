@@ -55,6 +55,20 @@ xrd = {
                                         description = "Number of replicas"
                                         minimum = 1
                                     }
+                                    # Optional: where Crossplane should write connection secrets
+                                    writeConnectionSecretToRef = {
+                                        type = "object"
+                                        properties = {
+                                            name = {
+                                                type = "string"
+                                                description = "Name of the connection secret to write"
+                                            }
+                                            namespace = {
+                                                type = "string"
+                                                description = "Namespace for the connection secret"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             status = {

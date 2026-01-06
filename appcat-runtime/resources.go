@@ -131,25 +131,17 @@ func generateResources(
 	}
 	resources["helmrelease"] = helmReleaseResource
 
-	// Build connection details Secret
-	connectionSecret := NewSecretBuilder(fmt.Sprintf("%s-connection", instanceName), compositeNamespace).
-		WithStringData("password", password).
-		WithStringData("host", fmt.Sprintf("%s-master.%s.svc.cluster.local", instanceName, compositeNamespace)).
-		WithStringData("port", "6379").
-		WithStringData("url", fmt.Sprintf("redis://:%s@%s-master.%s.svc.cluster.local:6379", password, instanceName, compositeNamespace)).
-		WithLabel("app", "redis").
-		WithLabel("instance", instanceName).
-		Build()
-
-	connectionSecretResource, err := toFunctionResource(connectionSecret)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert connection secret to function resource: %w", err)
+	// Build connection details; Crossplane will write them to writeConnectionSecretToRef
+	host := fmt.Sprintf("%s-master.%s.svc.cluster.local", instanceName, compositeNamespace)
+	connDetails := map[string][]byte{
+		"password": []byte(password),
+		"host":     []byte(host),
+		"port":     []byte("6379"),
+		"url":      []byte(fmt.Sprintf("redis://:%s@%s:6379", password, host)),
 	}
-	resources["connection-secret"] = connectionSecretResource
 
 	log.Info("Generated all resources", "count", len(resources))
-	// Return empty connection details map since we're creating the secret as a composed resource
-	return resources, map[string][]byte{}, nil
+	return resources, connDetails, nil
 }
 
 // toFunctionResource converts a Kubernetes runtime.Object to a function Resource

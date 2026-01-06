@@ -71,21 +71,23 @@ func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest)
 	log.Info("Config merged successfully")
 
 	// STEP 4: Generate desired resources
-	resources, _, err := generateResources(ctx, composite, req.GetObserved().GetResources(), mergedConfig, log)
+	resources, connDetails, err := generateResources(ctx, composite, req.GetObserved().GetResources(), mergedConfig, log)
 	if err != nil {
 		log.Error(err, "Failed to generate resources")
 		return nil, fmt.Errorf("failed to generate resources: %w", err)
 	}
 
 	// STEP 5: Build and return response
-	// Note: In Crossplane 2.x, connection details are managed by creating a Secret
-	// as a composed resource (not via Composite.ConnectionDetails)
 	resp := &fnv1.RunFunctionResponse{
 		Meta: &fnv1.ResponseMeta{
 			Ttl: durationpb.New(60 * time.Second),
 		},
 		Desired: &fnv1.State{
-			Resources: resources, // Includes: helmrelease + connection-secret
+			Composite: &fnv1.Resource{
+				ConnectionDetails: connDetails,
+				Ready:             fnv1.Ready_READY_TRUE,
+			},
+			Resources: resources,
 		},
 	}
 
