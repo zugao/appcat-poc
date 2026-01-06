@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 
 	helmv1 "github.com/crossplane-contrib/provider-helm/apis/namespaced/release/v1beta1"
@@ -141,12 +139,6 @@ func (b *SecretBuilder) Build() *corev1.Secret {
 	}
 }
 
-// generateRandomPassword generates a random base64 password
-func generateRandomPassword(length int) string {
-	bytes := make([]byte, length)
-	rand.Read(bytes)
-	return base64.URLEncoding.EncodeToString(bytes)[:length]
-}
 
 // ValuesFromConfig merges JSON helmValues from ConfigMap data with defaults.
 func ValuesFromConfig(cfg map[string]string, defaults map[string]any) map[string]any {

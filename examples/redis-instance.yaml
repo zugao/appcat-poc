@@ -9,3 +9,4 @@ spec:
     memory: "4Gi"
     disk: "16Gi"
   replicas: 3
+# Note: Connection details are automatically created as a Secret named {instance-name}-connection
