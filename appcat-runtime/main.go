@@ -14,14 +14,16 @@ import (
 func main() {
 	addr := flag.String("addr", ":9443", "gRPC listen address")
 	tlsDirFlag := flag.String("tls-dir", "", "Directory containing tls.crt, tls.key, ca.crt (defaults to TLS_SERVER_CERTS_DIR)")
+	proxyEndpoint := flag.String("proxy", "", "Proxy endpoint for debugging (e.g., '127.0.0.1:9443'). If set, all requests are forwarded to this endpoint.")
+	insecure := flag.Bool("insecure", false, "Run in insecure mode without TLS (for local debugging only)")
 	flag.Parse()
 
 	tlsDir := *tlsDirFlag
 	if tlsDir == "" {
 		tlsDir = os.Getenv("TLS_SERVER_CERTS_DIR")
 	}
-	if tlsDir == "" {
-		panic("TLS server cert directory not set; set --tls-dir or TLS_SERVER_CERTS_DIR")
+	if !*insecure && tlsDir == "" {
+		panic("TLS server cert directory not set; set --tls-dir or TLS_SERVER_CERTS_DIR, or use --insecure for local debugging")
 	}
 
 	// Health server allows Crossplane to probe readiness
@@ -29,16 +31,29 @@ func main() {
 	healthSrv.SetServingStatus("function-appcat-poc", healthpb.HealthCheckResponse_SERVING)
 	healthSrv.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
-	// Create and register manager
-	mgr := NewManager(zap.New())
+	// Create and register manager with proxy endpoint
+	mgr := NewManager(zap.New(), *proxyEndpoint)
 
 	opts := []function.ServeOption{
 		function.Listen("tcp", *addr),
-		function.MTLSCertificates(tlsDir),
+		function.Insecure(*insecure),
 		function.WithHealthServer(healthSrv),
 	}
 
-	fmt.Printf("Starting gRPC server on %s (mTLS dir: %s)\n", *addr, tlsDir)
+	if !*insecure {
+		opts = append(opts, function.MTLSCertificates(tlsDir))
+	}
+
+	if *insecure {
+		fmt.Printf("Starting gRPC server on %s (INSECURE MODE - for debugging)\n", *addr)
+	} else {
+		fmt.Printf("Starting gRPC server on %s (mTLS dir: %s)\n", *addr, tlsDir)
+	}
+
+	if *proxyEndpoint != "" {
+		fmt.Printf("⚠️  PROXY MODE: All requests forwarded to %s\n", *proxyEndpoint)
+	}
+
 	if err := function.Serve(mgr, opts...); err != nil {
 		panic(fmt.Errorf("serve: %w", err))
 	}

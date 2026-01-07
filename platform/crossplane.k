@@ -56,6 +56,10 @@ deploymentruntimeconfig_function= {
                         containers = [
                             {
                                 name = "package-runtime"
+                                args = [
+                                    "--proxy"
+                                    "172.18.0.1:9443"
+                                ]
                                 image = "ghcr.io/zugao/function-appcat-poc:v0.1.3"
                                 ports = [
                                     {

@@ -7,19 +7,23 @@ import (
 
 	fnv1 "github.com/crossplane/function-sdk-go/proto/v1"
 	"github.com/go-logr/logr"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // Manager handles composition function requests
 type Manager struct {
 	fnv1.UnimplementedFunctionRunnerServiceServer
-	log logr.Logger
+	log           logr.Logger
+	proxyEndpoint string
 }
 
 // NewManager creates a new Manager instance
-func NewManager(log logr.Logger) *Manager {
+func NewManager(log logr.Logger, proxyEndpoint string) *Manager {
 	return &Manager{
-		log: log,
+		log:           log,
+		proxyEndpoint: proxyEndpoint,
 	}
 }
 
@@ -27,6 +31,13 @@ func NewManager(log logr.Logger) *Manager {
 // Merges service config (defaultHelmValues + mapping) with user runtime parameters
 func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
 	log := m.log.WithValues("function", "appcat-poc")
+
+	// If proxy endpoint is set, forward request to local endpoint
+	if m.proxyEndpoint != "" {
+		log.Info("Proxy mode enabled - forwarding request", "endpoint", m.proxyEndpoint)
+		return m.proxyFunction(ctx, req)
+	}
+
 	log.Info("RunFunction called")
 
 	// STEP 1: Extract composite (contains user runtime parameters from XRD spec)
@@ -92,5 +103,36 @@ func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest)
 	}
 
 	log.Info("Function execution complete", "resourceCount", len(resources))
+	return resp, nil
+}
+
+// proxyFunction forwards the function request to a local development endpoint
+// This allows debugging the function locally while the proxy runs in the cluster
+func (m *Manager) proxyFunction(ctx context.Context, req *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
+	log := m.log.WithValues("function", "appcat-poc-proxy")
+
+	log.Info("Forwarding request to local endpoint", "endpoint", m.proxyEndpoint)
+
+	// Create insecure gRPC connection to local endpoint
+	// Local endpoint runs with proper TLS, but proxy connects without TLS for simplicity
+	conn, err := grpc.DialContext(ctx, m.proxyEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+	)
+	if err != nil {
+		log.Error(err, "Failed to connect to proxy endpoint", "endpoint", m.proxyEndpoint)
+		return nil, fmt.Errorf("failed to connect to proxy endpoint %s: %w", m.proxyEndpoint, err)
+	}
+	defer conn.Close()
+
+	// Forward the request to the local function
+	client := fnv1.NewFunctionRunnerServiceClient(conn)
+	resp, err := client.RunFunction(ctx, req)
+	if err != nil {
+		log.Error(err, "Failed to execute function on proxy endpoint", "endpoint", m.proxyEndpoint)
+		return nil, fmt.Errorf("failed to execute function on proxy endpoint %s: %w", m.proxyEndpoint, err)
+	}
+
+	log.Info("Successfully proxied request to local endpoint", "endpoint", m.proxyEndpoint)
 	return resp, nil
 }
