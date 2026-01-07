@@ -8,6 +8,9 @@ import providers
 [
     crossplane.namespace,
     crossplane.function_package,
+    crossplane.deploymentruntimeconfig_function,
+    crossplane.serviceaccount_function,
+    crossplane.clusterrolebinding_function,
     providers.serviceaccount_helm,
     providers.clusterrolebinding_helm,
     providers.deploymentruntimeconfig_helm,
