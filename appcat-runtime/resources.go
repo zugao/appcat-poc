@@ -115,85 +115,52 @@ func generateResources(
 
 	resources := make(map[string]*fnv1.Resource)
 
-	// 1. Generate Namespace - create as HelmRelease value, not as a managed resource
-	// (Namespaces are cluster-scoped and cannot be composed by namespace-scoped composites)
-
-	// 2. Get or generate password (will be published as connection detail)
+	// 1. Get or generate password
 	password, err := getOrGeneratePassword(observedResources, instanceName, log)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get password: %w", err)
 	}
 
-	// 3. Generate HelmRelease
-	chart, ok := mergedConfig["chart"].(map[string]interface{})
-	if !ok {
-		return nil, nil, fmt.Errorf("chart not found in merged config")
+	// 2. Extract chart and Helm values configuration
+	chartRepo, chartName, chartVersion, err := extractChartConfig(mergedConfig)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	chartName, ok := chart["name"].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("chart.name not found or not a string")
-	}
-
-	chartRepo, ok := chart["repository"].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("chart.repository not found or not a string")
-	}
-
-	chartVersion, ok := chart["defaultVersion"].(string)
-	if !ok {
-		return nil, nil, fmt.Errorf("chart.defaultVersion not found or not a string")
-	}
-
-	helmValues, ok := mergedConfig["helmValues"].(map[string]interface{})
+	helmValues, ok := mergedConfig["helmValues"].(map[string]any)
 	if !ok {
 		return nil, nil, fmt.Errorf("helmValues not found in merged config")
 	}
 
-	// Extract connection secret configuration from input (optional)
+	// 3. Process connection secret configuration (optional)
 	connectionSecret, err := getConnectionSecretConfig(mergedConfig)
 	if err != nil {
-		// No connection secret configured - this is OK for some services
-		log.Info("No connection secret configured, skipping secret creation")
+		log.Info("No connection secret configured")
 		connectionSecret = nil
 	}
 
-	// Declare secret name variables outside scope for later use
 	var secretName, secretNamespace string
-
-	// Only process connection secrets if configured
 	if connectionSecret != nil {
-		// Get secret name early so we can inject it into Helm values if needed
 		secretName, secretNamespace, err = getSecretName(composite, compositeNamespace, log)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get secret name: %w", err)
 		}
 
-		// Inject password into Helm values if passwordPath specified
+		// Inject password and secret name into Helm values
 		if connectionSecret.PasswordPath != "" {
 			if err := injectPasswordIntoHelmValues(helmValues, connectionSecret.PasswordPath, password); err != nil {
-				return nil, nil, fmt.Errorf("failed to inject password into Helm values: %w", err)
+				return nil, nil, fmt.Errorf("failed to inject password: %w", err)
 			}
 		}
-
-		// Inject existing secret name into Helm values if existingSecretPath specified
 		if connectionSecret.ExistingSecretPath != "" {
 			paved := fieldpath.Pave(helmValues)
 			if err := paved.SetValue(connectionSecret.ExistingSecretPath, secretName); err != nil {
-				return nil, nil, fmt.Errorf("failed to inject secret name into Helm values: %w", err)
+				return nil, nil, fmt.Errorf("failed to inject secret name: %w", err)
 			}
-			log.Info("Configured Helm chart to use existing secret",
-				"path", connectionSecret.ExistingSecretPath,
-				"secretName", secretName)
 		}
 	}
 
-	log.Info("Creating HelmRelease",
-		"chart", chartName,
-		"version", chartVersion,
-		"repository", chartRepo,
-		"helmReleaseNamespace", compositeNamespace)
-
+	// 4. Create HelmRelease resource
 	helmRelease := NewHelmReleaseBuilder(instanceName).
 		WithNamespace(compositeNamespace).
 		WithChart(chartRepo, chartName, chartVersion).
@@ -202,11 +169,11 @@ func generateResources(
 
 	helmReleaseResource, err := toFunctionResource(helmRelease)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert helm release to function resource: %w", err)
+		return nil, nil, fmt.Errorf("failed to convert helm release: %w", err)
 	}
 	resources["helmrelease"] = helmReleaseResource
 
-	// Generate connection secret if configured
+	// 5. Create connection secret resource (if configured)
 	connDetails := make(map[string][]byte)
 	if connectionSecret != nil {
 		// Build variable map for template substitution
@@ -266,6 +233,31 @@ func toFunctionResource(obj runtime.Object) (*fnv1.Resource, error) {
 	return &fnv1.Resource{
 		Resource: structpbStruct,
 	}, nil
+}
+
+// extractChartConfig extracts Helm chart configuration from merged config
+func extractChartConfig(mergedConfig map[string]any) (repo, name, version string, err error) {
+	chart, ok := mergedConfig["chart"].(map[string]any)
+	if !ok {
+		return "", "", "", fmt.Errorf("chart not found in merged config")
+	}
+
+	name, ok = chart["name"].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("chart.name not found")
+	}
+
+	repo, ok = chart["repository"].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("chart.repository not found")
+	}
+
+	version, ok = chart["defaultVersion"].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("chart.defaultVersion not found")
+	}
+
+	return repo, name, version, nil
 }
 
 // SecretFieldTemplate represents a single secret field with templated value

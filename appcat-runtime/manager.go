@@ -48,10 +48,8 @@ func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest)
 
 	userSpec, err := extractUserSpec(composite)
 	if err != nil {
-		log.Error(err, "Failed to extract user spec from composite")
 		return nil, fmt.Errorf("failed to extract user spec: %w", err)
 	}
-
 	log.Info("Extracted user spec", "spec", userSpec)
 
 	// STEP 2: Extract service config from Composition input
@@ -62,29 +60,19 @@ func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest)
 
 	serviceConfig, err := extractServiceConfig(input)
 	if err != nil {
-		log.Error(err, "Failed to extract service config from input")
 		return nil, fmt.Errorf("failed to extract service config: %w", err)
 	}
+	log.Info("Extracted service config")
 
-	log.Info("Extracted service config",
-		"chartName", serviceConfig["chart"].(map[string]interface{})["name"],
-		"hasMappings", len(serviceConfig["mapping"].(map[string]interface{})))
-
-	// STEP 3: Merge configs
-	// - Start with service defaultHelmValues
-	// - Use mapping to inject user spec values into helm values
+	// STEP 3: Merge configs (defaultHelmValues + user parameters)
 	mergedConfig, err := mergeConfigs(serviceConfig, userSpec, log)
 	if err != nil {
-		log.Error(err, "Failed to merge configs")
 		return nil, fmt.Errorf("failed to merge configs: %w", err)
 	}
-
-	log.Info("Config merged successfully")
 
 	// STEP 4: Generate desired resources
 	resources, connDetails, err := generateResources(ctx, composite, req.GetObserved().GetResources(), mergedConfig, log)
 	if err != nil {
-		log.Error(err, "Failed to generate resources")
 		return nil, fmt.Errorf("failed to generate resources: %w", err)
 	}
 
@@ -106,33 +94,21 @@ func (m *Manager) RunFunction(ctx context.Context, req *fnv1.RunFunctionRequest)
 	return resp, nil
 }
 
-// proxyFunction forwards the function request to a local development endpoint
-// This allows debugging the function locally while the proxy runs in the cluster
+// proxyFunction forwards requests to a local development endpoint for debugging
 func (m *Manager) proxyFunction(ctx context.Context, req *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
-	log := m.log.WithValues("function", "appcat-poc-proxy")
-
-	log.Info("Forwarding request to local endpoint", "endpoint", m.proxyEndpoint)
-
 	// Create insecure gRPC connection to local endpoint
-	// Local endpoint runs with proper TLS, but proxy connects without TLS for simplicity
-	conn, err := grpc.DialContext(ctx, m.proxyEndpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-	)
+	conn, err := grpc.NewClient(m.proxyEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Error(err, "Failed to connect to proxy endpoint", "endpoint", m.proxyEndpoint)
-		return nil, fmt.Errorf("failed to connect to proxy endpoint %s: %w", m.proxyEndpoint, err)
+		return nil, fmt.Errorf("failed to connect to proxy %s: %w", m.proxyEndpoint, err)
 	}
 	defer conn.Close()
 
-	// Forward the request to the local function
+	// Forward the request
 	client := fnv1.NewFunctionRunnerServiceClient(conn)
 	resp, err := client.RunFunction(ctx, req)
 	if err != nil {
-		log.Error(err, "Failed to execute function on proxy endpoint", "endpoint", m.proxyEndpoint)
-		return nil, fmt.Errorf("failed to execute function on proxy endpoint %s: %w", m.proxyEndpoint, err)
+		return nil, fmt.Errorf("failed to execute on proxy %s: %w", m.proxyEndpoint, err)
 	}
 
-	log.Info("Successfully proxied request to local endpoint", "endpoint", m.proxyEndpoint)
 	return resp, nil
 }

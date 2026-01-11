@@ -1,11 +1,11 @@
 apiVersion: appcat.vshn.io/v1alpha1
 kind: XVSHNRedis
 metadata:
-  name: my-redis
+  name: my-redis-1
   namespace: default
 spec:
   writeConnectionSecretToRef:
-    name: redis-credentials
+    name: redis-credentials-1
     namespace: default
   size:
     cpu: "1000m"

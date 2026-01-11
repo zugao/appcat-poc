@@ -18,10 +18,13 @@ func main() {
 	insecure := flag.Bool("insecure", false, "Run in insecure mode without TLS (for local debugging only)")
 	flag.Parse()
 
+	// Get TLS directory from flag or environment
 	tlsDir := *tlsDirFlag
 	if tlsDir == "" {
 		tlsDir = os.Getenv("TLS_SERVER_CERTS_DIR")
 	}
+
+	// Validate TLS configuration unless in insecure mode
 	if !*insecure && tlsDir == "" {
 		panic("TLS server cert directory not set; set --tls-dir or TLS_SERVER_CERTS_DIR, or use --insecure for local debugging")
 	}
@@ -34,24 +37,24 @@ func main() {
 	// Create and register manager with proxy endpoint
 	mgr := NewManager(zap.New(), *proxyEndpoint)
 
+	// Build server options
 	opts := []function.ServeOption{
 		function.Listen("tcp", *addr),
 		function.Insecure(*insecure),
 		function.WithHealthServer(healthSrv),
 	}
-
 	if !*insecure {
 		opts = append(opts, function.MTLSCertificates(tlsDir))
 	}
 
+	// Log startup configuration
 	if *insecure {
-		fmt.Printf("Starting gRPC server on %s (INSECURE MODE - for debugging)\n", *addr)
+		fmt.Printf("Starting gRPC server on %s (INSECURE MODE)\n", *addr)
 	} else {
-		fmt.Printf("Starting gRPC server on %s (mTLS dir: %s)\n", *addr, tlsDir)
+		fmt.Printf("Starting gRPC server on %s (mTLS: %s)\n", *addr, tlsDir)
 	}
-
 	if *proxyEndpoint != "" {
-		fmt.Printf("⚠️  PROXY MODE: All requests forwarded to %s\n", *proxyEndpoint)
+		fmt.Printf("⚠️  PROXY MODE: Forwarding to %s\n", *proxyEndpoint)
 	}
 
 	if err := function.Serve(mgr, opts...); err != nil {

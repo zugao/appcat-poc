@@ -93,13 +93,9 @@ func mergeConfigs(serviceConfig map[string]any, userSpec map[string]any, log log
 		}
 
 		// Set value in helm values using helm path
-		err = setValueByPath(helmValues, helmPath, value)
-		if err != nil {
-			log.Error(err, "Failed to set helm value", "helmPath", helmPath, "value", value)
-			return nil, fmt.Errorf("failed to set helm value at path %s: %w", helmPath, err)
+		if err := setValueByPath(helmValues, helmPath, value); err != nil {
+			return nil, fmt.Errorf("failed to set helm value at %s: %w", helmPath, err)
 		}
-
-		log.Info("Mapped value", "xrdPath", xrdPath, "helmPath", helmPath, "value", value)
 	}
 
 	// Return merged config

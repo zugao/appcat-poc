@@ -9,76 +9,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// NamespaceBuilder builds Kubernetes Namespace objects using fluent API
-type NamespaceBuilder struct {
-	name        string
-	labels      map[string]string
-	annotations map[string]string
-}
-
-// NewNamespaceBuilder creates a new namespace builder
-func NewNamespaceBuilder(name string) *NamespaceBuilder {
-	return &NamespaceBuilder{
-		name:        name,
-		labels:      make(map[string]string),
-		annotations: make(map[string]string),
-	}
-}
-
-// WithLabel adds a label to the namespace
-func (b *NamespaceBuilder) WithLabel(key, value string) *NamespaceBuilder {
-	b.labels[key] = value
-	return b
-}
-
-// WithLabels adds multiple labels to the namespace
-func (b *NamespaceBuilder) WithLabels(labels map[string]string) *NamespaceBuilder {
-	for k, v := range labels {
-		b.labels[k] = v
-	}
-	return b
-}
-
-// WithAnnotation adds an annotation to the namespace
-func (b *NamespaceBuilder) WithAnnotation(key, value string) *NamespaceBuilder {
-	b.annotations[key] = value
-	return b
-}
-
-// Build creates the Namespace object
-func (b *NamespaceBuilder) Build() *corev1.Namespace {
-	return &corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        b.name,
-			Labels:      b.labels,
-			Annotations: b.annotations,
-		},
-	}
-}
-
 // SecretBuilder builds Kubernetes Secret objects using fluent API
 type SecretBuilder struct {
-	name        string
-	namespace   string
-	data        map[string][]byte
-	stringData  map[string]string
-	labels      map[string]string
-	annotations map[string]string
+	name      string
+	namespace string
+	data      map[string][]byte
+	labels    map[string]string
 }
 
 // NewSecretBuilder creates a new secret builder
 func NewSecretBuilder(name, namespace string) *SecretBuilder {
 	return &SecretBuilder{
-		name:        name,
-		namespace:   namespace,
-		data:        make(map[string][]byte),
-		stringData:  make(map[string]string),
-		labels:      make(map[string]string),
-		annotations: make(map[string]string),
+		name:      name,
+		namespace: namespace,
+		data:      make(map[string][]byte),
+		labels:    make(map[string]string),
 	}
 }
 
@@ -88,36 +33,9 @@ func (b *SecretBuilder) WithData(key string, value []byte) *SecretBuilder {
 	return b
 }
 
-// WithStringData adds string data to the secret
-func (b *SecretBuilder) WithStringData(key, value string) *SecretBuilder {
-	b.stringData[key] = value
-	return b
-}
-
 // WithLabel adds a label to the secret
 func (b *SecretBuilder) WithLabel(key, value string) *SecretBuilder {
 	b.labels[key] = value
-	return b
-}
-
-// WithLabels adds multiple labels to the secret
-func (b *SecretBuilder) WithLabels(labels map[string]string) *SecretBuilder {
-	for k, v := range labels {
-		b.labels[k] = v
-	}
-	return b
-}
-
-// WithAnnotation adds an annotation to the secret
-func (b *SecretBuilder) WithAnnotation(key, value string) *SecretBuilder {
-	b.annotations[key] = value
-	return b
-}
-
-// WithRandomPassword generates a random password and adds it to the secret
-func (b *SecretBuilder) WithRandomPassword(key string, length int) *SecretBuilder {
-	password := generateRandomPassword(length)
-	b.stringData[key] = password
 	return b
 }
 
@@ -129,56 +47,35 @@ func (b *SecretBuilder) Build() *corev1.Secret {
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        b.name,
-			Namespace:   b.namespace,
-			Labels:      b.labels,
-			Annotations: b.annotations,
+			Name:      b.name,
+			Namespace: b.namespace,
+			Labels:    b.labels,
 		},
-		Data:       b.data,
-		StringData: b.stringData,
+		Data: b.data,
 	}
-}
-
-
-// ValuesFromConfig merges JSON helmValues from ConfigMap data with defaults.
-func ValuesFromConfig(cfg map[string]string, defaults map[string]any) map[string]any {
-	out := map[string]any{}
-	for k, v := range defaults {
-		out[k] = v
-	}
-	if raw, ok := cfg["helmValues"]; ok && raw != "" {
-		_ = json.Unmarshal([]byte(raw), &out)
-	}
-	return out
 }
 
 // HelmReleaseBuilder builds helm.m.crossplane.io/v1beta1 Release objects using fluent API
-// For namespace-scoped composites in Crossplane 2.0, HelmRelease must have a namespace.
-// Use WithNamespace() to set the resource namespace and WithTargetNamespace() for chart deployment.
 type HelmReleaseBuilder struct {
-	name            string
-	namespace       string
-	chartRepo       string
-	chartName       string
-	chartVersion    string
-	targetNamespace string
-	values          map[string]any
-	labels          map[string]string
-	annotations     map[string]string
+	name         string
+	namespace    string
+	chartRepo    string
+	chartName    string
+	chartVersion string
+	values       map[string]any
+	labels       map[string]string
 }
 
 // NewHelmReleaseBuilder creates a new HelmRelease builder
 func NewHelmReleaseBuilder(name string) *HelmReleaseBuilder {
 	return &HelmReleaseBuilder{
-		name:        name,
-		values:      make(map[string]any),
-		labels:      make(map[string]string),
-		annotations: make(map[string]string),
+		name:   name,
+		values: make(map[string]any),
+		labels: make(map[string]string),
 	}
 }
 
-// WithNamespace sets the namespace for the HelmRelease resource itself
-// Required for namespace-scoped composites in Crossplane 2.0
+// WithNamespace sets the namespace for the HelmRelease resource
 func (b *HelmReleaseBuilder) WithNamespace(namespace string) *HelmReleaseBuilder {
 	b.namespace = namespace
 	return b
@@ -192,41 +89,15 @@ func (b *HelmReleaseBuilder) WithChart(repo, name, version string) *HelmReleaseB
 	return b
 }
 
-// WithTargetNamespace sets the namespace where the chart will be deployed
-func (b *HelmReleaseBuilder) WithTargetNamespace(namespace string) *HelmReleaseBuilder {
-	b.targetNamespace = namespace
-	return b
-}
-
 // WithValues sets the Helm values
 func (b *HelmReleaseBuilder) WithValues(values map[string]any) *HelmReleaseBuilder {
 	b.values = values
 	return b
 }
 
-// WithValue sets a single Helm value
-func (b *HelmReleaseBuilder) WithValue(key string, value any) *HelmReleaseBuilder {
-	b.values[key] = value
-	return b
-}
-
 // WithLabel adds a label to the HelmRelease
 func (b *HelmReleaseBuilder) WithLabel(key, value string) *HelmReleaseBuilder {
 	b.labels[key] = value
-	return b
-}
-
-// WithLabels adds multiple labels to the HelmRelease
-func (b *HelmReleaseBuilder) WithLabels(labels map[string]string) *HelmReleaseBuilder {
-	for k, v := range labels {
-		b.labels[k] = v
-	}
-	return b
-}
-
-// WithAnnotation adds an annotation to the HelmRelease
-func (b *HelmReleaseBuilder) WithAnnotation(key, value string) *HelmReleaseBuilder {
-	b.annotations[key] = value
 	return b
 }
 
@@ -245,10 +116,9 @@ func (b *HelmReleaseBuilder) Build() *helmv1.Release {
 			Kind:       "Release",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        b.name,
-			Namespace:   b.namespace,
-			Labels:      b.labels,
-			Annotations: b.annotations,
+			Name:      b.name,
+			Namespace: b.namespace,
+			Labels:    b.labels,
 		},
 		Spec: helmv1.ReleaseSpec{
 			ForProvider: helmv1.ReleaseParameters{
