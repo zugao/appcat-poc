@@ -13,8 +13,7 @@ provider_kubernetes = {
     }
 }
 
-# Helm Provider
-# Note: Using v1.0.6 for better Crossplane 2.0 compatibility with namespace-scoped resources
+# Helm Provider with namespace-scoped Release support
 provider_helm = {
     apiVersion = "pkg.crossplane.io/v1"
     kind = "Provider"
@@ -43,7 +42,8 @@ providerconfig_kubernetes = {
     }
 }
 
-# ProviderConfig for Helm (in-cluster) - legacy cluster-scoped API
+# ProviderConfig for Helm - legacy cluster-scoped API (helm.crossplane.io)
+# Note: Both old and new APIs configured for compatibility
 providerconfig_helm = {
     apiVersion = "helm.crossplane.io/v1beta1"
     kind = "ProviderConfig"
@@ -57,7 +57,8 @@ providerconfig_helm = {
     }
 }
 
-# ClusterProviderConfig for Helm (in-cluster) - namespace-scoped API for Crossplane 2.0
+# ClusterProviderConfig for Helm - namespace-scoped API (helm.m.crossplane.io)
+# This is used by our namespace-scoped HelmReleases in Crossplane 2.0
 clusterproviderconfig_helm = {
     apiVersion = "helm.m.crossplane.io/v1beta1"
     kind = "ClusterProviderConfig"
@@ -72,7 +73,6 @@ clusterproviderconfig_helm = {
 }
 
 # ServiceAccount for provider-helm
-# Custom service account with necessary RBAC permissions
 serviceaccount_helm = {
     apiVersion = "v1"
     kind = "ServiceAccount"
@@ -82,9 +82,7 @@ serviceaccount_helm = {
     }
 }
 
-# RBAC ClusterRoleBinding for provider-helm
-# Grants permissions needed for namespace-scoped Releases to deploy Helm charts
-# Note: In production, use more restrictive RBAC. This grants cluster-admin for PoC.
+# ClusterRoleBinding for provider-helm (cluster-admin for PoC)
 clusterrolebinding_helm = {
     apiVersion = "rbac.authorization.k8s.io/v1"
     kind = "ClusterRoleBinding"

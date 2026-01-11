@@ -1,5 +1,5 @@
 # Composition for VSHNRedis
-# Imports service config from redis-service repo to avoid duplication
+# Imports service config from config.k and embeds it in the pipeline input
 
 import config as redis_config
 
@@ -24,7 +24,7 @@ composition = {
                 functionRef = {
                     name = "function-appcat-poc"
                 }
-                # INLINE input - imports service config from redis-service repo
+                # Inline input embedding service config from config.k
                 input = {
                     apiVersion = "fn.appcat.vshn.io/v1alpha1"
                     kind = "AppCatServiceConfig"
@@ -34,7 +34,6 @@ composition = {
                             service = "redis"
                         }
                     }
-                    # Service config imported from redis-service/config.k
                     data = {
                         chart = redis_config.service_config.chart
                         defaultHelmValues = redis_config.service_config.defaultHelmValues
