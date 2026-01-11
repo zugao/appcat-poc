@@ -150,34 +150,42 @@ func generateResources(
 		return nil, nil, fmt.Errorf("helmValues not found in merged config")
 	}
 
-	// Extract connection secret configuration from input
+	// Extract connection secret configuration from input (optional)
 	connectionSecret, err := getConnectionSecretConfig(mergedConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get connection secret config: %w", err)
+		// No connection secret configured - this is OK for some services
+		log.Info("No connection secret configured, skipping secret creation")
+		connectionSecret = nil
 	}
 
-	// Get secret name early so we can inject it into Helm values if needed
-	secretName, secretNamespace, err := getSecretName(composite, compositeNamespace, log)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get secret name: %w", err)
-	}
+	// Declare secret name variables outside scope for later use
+	var secretName, secretNamespace string
 
-	// Inject password into Helm values if passwordPath specified
-	if connectionSecret.PasswordPath != "" {
-		if err := injectPasswordIntoHelmValues(helmValues, connectionSecret.PasswordPath, password); err != nil {
-			return nil, nil, fmt.Errorf("failed to inject password into Helm values: %w", err)
+	// Only process connection secrets if configured
+	if connectionSecret != nil {
+		// Get secret name early so we can inject it into Helm values if needed
+		secretName, secretNamespace, err = getSecretName(composite, compositeNamespace, log)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get secret name: %w", err)
 		}
-	}
 
-	// Inject existing secret name into Helm values if existingSecretPath specified
-	if connectionSecret.ExistingSecretPath != "" {
-		paved := fieldpath.Pave(helmValues)
-		if err := paved.SetValue(connectionSecret.ExistingSecretPath, secretName); err != nil {
-			return nil, nil, fmt.Errorf("failed to inject secret name into Helm values: %w", err)
+		// Inject password into Helm values if passwordPath specified
+		if connectionSecret.PasswordPath != "" {
+			if err := injectPasswordIntoHelmValues(helmValues, connectionSecret.PasswordPath, password); err != nil {
+				return nil, nil, fmt.Errorf("failed to inject password into Helm values: %w", err)
+			}
 		}
-		log.Info("Configured Helm chart to use existing secret",
-			"path", connectionSecret.ExistingSecretPath,
-			"secretName", secretName)
+
+		// Inject existing secret name into Helm values if existingSecretPath specified
+		if connectionSecret.ExistingSecretPath != "" {
+			paved := fieldpath.Pave(helmValues)
+			if err := paved.SetValue(connectionSecret.ExistingSecretPath, secretName); err != nil {
+				return nil, nil, fmt.Errorf("failed to inject secret name into Helm values: %w", err)
+			}
+			log.Info("Configured Helm chart to use existing secret",
+				"path", connectionSecret.ExistingSecretPath,
+				"secretName", secretName)
+		}
 	}
 
 	log.Info("Creating HelmRelease",
@@ -198,43 +206,44 @@ func generateResources(
 	}
 	resources["helmrelease"] = helmReleaseResource
 
-	// Build variable map for template substitution
-	variables := map[string]string{
-		"instanceName": instanceName,
-		"namespace":    compositeNamespace,
-		"password":     password,
-	}
-
-	// Create Secret as managed resource
-
-	// Generate connection details from templates
+	// Generate connection secret if configured
 	connDetails := make(map[string][]byte)
-	secretBuilder := NewSecretBuilder(secretName, secretNamespace)
+	if connectionSecret != nil {
+		// Build variable map for template substitution
+		variables := map[string]string{
+			"instanceName": instanceName,
+			"namespace":    compositeNamespace,
+			"password":     password,
+		}
 
-	for _, field := range connectionSecret.Fields {
-		// Substitute variables in template
-		value := substituteVariables(field.Value, variables)
-		connDetails[field.Key] = []byte(value)
-		secretBuilder = secretBuilder.WithData(field.Key, []byte(value))
+		// Generate connection details from templates
+		secretBuilder := NewSecretBuilder(secretName, secretNamespace)
+
+		for _, field := range connectionSecret.Fields {
+			// Substitute variables in template
+			value := substituteVariables(field.Value, variables)
+			connDetails[field.Key] = []byte(value)
+			secretBuilder = secretBuilder.WithData(field.Key, []byte(value))
+		}
+
+		log.Info("Creating connection Secret",
+			"secretName", secretName,
+			"secretNamespace", secretNamespace,
+			"instanceName", instanceName,
+			"fieldsCount", len(connectionSecret.Fields))
+
+		secret := secretBuilder.
+			WithLabel("app.kubernetes.io/managed-by", "crossplane").
+			WithLabel("app.kubernetes.io/instance", instanceName).
+			WithLabel("app.kubernetes.io/component", "connection-secret").
+			Build()
+
+		secretResource, err := toFunctionResource(secret)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to convert secret to function resource: %w", err)
+		}
+		resources["secret"] = secretResource
 	}
-
-	log.Info("Creating connection Secret",
-		"secretName", secretName,
-		"secretNamespace", secretNamespace,
-		"instanceName", instanceName,
-		"fieldsCount", len(connectionSecret.Fields))
-
-	secret := secretBuilder.
-		WithLabel("app.kubernetes.io/managed-by", "crossplane").
-		WithLabel("app.kubernetes.io/instance", instanceName).
-		WithLabel("app.kubernetes.io/component", "connection-secret").
-		Build()
-
-	secretResource, err := toFunctionResource(secret)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert secret to function resource: %w", err)
-	}
-	resources["secret"] = secretResource
 
 	log.Info("Generated all resources", "count", len(resources))
 	return resources, connDetails, nil
@@ -273,17 +282,17 @@ type ConnectionSecretConfig struct {
 }
 
 // getConnectionSecretConfig extracts connectionSecret configuration from merged config
-func getConnectionSecretConfig(mergedConfig map[string]interface{}) (*ConnectionSecretConfig, error) {
-	secretConfig, ok := mergedConfig["connectionSecret"].(map[string]interface{})
+func getConnectionSecretConfig(mergedConfig map[string]any) (*ConnectionSecretConfig, error) {
+	secretConfig, ok := mergedConfig["connectionSecret"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("connectionSecret not found in merged config")
 	}
 
 	// Parse fields array
 	fields := []SecretFieldTemplate{}
-	if fieldsRaw, ok := secretConfig["fields"].([]interface{}); ok {
+	if fieldsRaw, ok := secretConfig["fields"].([]any); ok {
 		for _, fieldRaw := range fieldsRaw {
-			if fieldMap, ok := fieldRaw.(map[string]interface{}); ok {
+			if fieldMap, ok := fieldRaw.(map[string]any); ok {
 				key, _ := fieldMap["key"].(string)
 				value, _ := fieldMap["value"].(string)
 				fields = append(fields, SecretFieldTemplate{Key: key, Value: value})
@@ -313,7 +322,7 @@ func substituteVariables(template string, variables map[string]string) string {
 }
 
 // injectPasswordIntoHelmValues injects password at specified path using dot notation
-func injectPasswordIntoHelmValues(helmValues map[string]interface{}, path string, password string) error {
+func injectPasswordIntoHelmValues(helmValues map[string]any, path string, password string) error {
 	if path == "" {
 		return nil // No password path specified, skip injection
 	}

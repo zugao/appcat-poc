@@ -12,7 +12,7 @@ import (
 
 // extractUserSpec extracts user-provided spec from the composite resource
 // Returns a map with the full spec (e.g., {size: {cpu: "1000m"}, replicas: 3})
-func extractUserSpec(composite *fnv1.Resource) (map[string]interface{}, error) {
+func extractUserSpec(composite *fnv1.Resource) (map[string]any, error) {
 	compositeMap := composite.Resource.AsMap()
 	paved := fieldpath.Pave(compositeMap)
 
@@ -21,9 +21,9 @@ func extractUserSpec(composite *fnv1.Resource) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to get spec from composite: %w", err)
 	}
 
-	spec, ok := specRaw.(map[string]interface{})
+	spec, ok := specRaw.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("spec is not a map[string]interface{}")
+		return nil, fmt.Errorf("spec is not a map")
 	}
 
 	return spec, nil
@@ -31,7 +31,7 @@ func extractUserSpec(composite *fnv1.Resource) (map[string]interface{}, error) {
 
 // extractServiceConfig extracts service configuration from Composition input
 // Returns a map with: chart, defaultHelmValues, mapping, connectionSecret
-func extractServiceConfig(input *structpb.Struct) (map[string]interface{}, error) {
+func extractServiceConfig(input *structpb.Struct) (map[string]any, error) {
 	inputMap := input.AsMap()
 	paved := fieldpath.Pave(inputMap)
 
@@ -40,9 +40,9 @@ func extractServiceConfig(input *structpb.Struct) (map[string]interface{}, error
 		return nil, fmt.Errorf("failed to get data from input: %w", err)
 	}
 
-	data, ok := dataRaw.(map[string]interface{})
+	data, ok := dataRaw.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("data is not a map[string]interface{}")
+		return nil, fmt.Errorf("data is not a map")
 	}
 
 	// Validate required fields
@@ -55,25 +55,23 @@ func extractServiceConfig(input *structpb.Struct) (map[string]interface{}, error
 	if _, ok := data["mapping"]; !ok {
 		return nil, fmt.Errorf("mapping not found in service config")
 	}
-	if _, ok := data["connectionSecret"]; !ok {
-		return nil, fmt.Errorf("connectionSecret not found in service config")
-	}
+	// Note: connectionSecret is optional - not all services need it
 
 	return data, nil
 }
 
 // mergeConfigs merges service config with user spec using the provided mapping
 // Returns a merged config with: chart, helmValues (merged), connectionSecret
-func mergeConfigs(serviceConfig map[string]interface{}, userSpec map[string]interface{}, log logr.Logger) (map[string]interface{}, error) {
+func mergeConfigs(serviceConfig map[string]any, userSpec map[string]any, log logr.Logger) (map[string]any, error) {
 	// Start with service's defaultHelmValues (deep copy)
-	defaultHelmValues, ok := serviceConfig["defaultHelmValues"].(map[string]interface{})
+	defaultHelmValues, ok := serviceConfig["defaultHelmValues"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("defaultHelmValues is not a map")
 	}
 	helmValues := deepCopy(defaultHelmValues)
 
 	// Get mapping
-	mapping, ok := serviceConfig["mapping"].(map[string]interface{})
+	mapping, ok := serviceConfig["mapping"].(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("mapping is not a map")
 	}
@@ -105,7 +103,7 @@ func mergeConfigs(serviceConfig map[string]interface{}, userSpec map[string]inte
 	}
 
 	// Return merged config
-	result := map[string]interface{}{
+	result := map[string]any{
 		"chart":      serviceConfig["chart"],
 		"helmValues": helmValues,
 	}
@@ -120,9 +118,9 @@ func mergeConfigs(serviceConfig map[string]interface{}, userSpec map[string]inte
 
 // getValueByPath retrieves a value from a nested map using a dot-separated path
 // Example: "spec.size.cpu" -> userSpec["size"]["cpu"]
-func getValueByPath(data map[string]interface{}, path string) (interface{}, error) {
+func getValueByPath(data map[string]any, path string) (any, error) {
 	parts := strings.Split(path, ".")
-	current := interface{}(data)
+	current := any(data)
 
 	for i, part := range parts {
 		// Skip "spec" prefix if present
@@ -130,7 +128,7 @@ func getValueByPath(data map[string]interface{}, path string) (interface{}, erro
 			continue
 		}
 
-		m, ok := current.(map[string]interface{})
+		m, ok := current.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("path %s: expected map at part %s, got %T", path, part, current)
 		}
@@ -149,7 +147,7 @@ func getValueByPath(data map[string]interface{}, path string) (interface{}, erro
 // setValueByPath sets a value in a nested map using a dot-separated path
 // Creates intermediate maps if they don't exist
 // Example: "master.resources.requests.cpu" with value "1000m"
-func setValueByPath(data map[string]interface{}, path string, value interface{}) error {
+func setValueByPath(data map[string]any, path string, value any) error {
 	parts := strings.Split(path, ".")
 	if len(parts) == 0 {
 		return fmt.Errorf("empty path")
@@ -164,12 +162,12 @@ func setValueByPath(data map[string]interface{}, path string, value interface{})
 		next, ok := current[part]
 		if !ok {
 			// Create new map
-			next = make(map[string]interface{})
+			next = make(map[string]any)
 			current[part] = next
 		}
 
 		// Ensure it's a map
-		nextMap, ok := next.(map[string]interface{})
+		nextMap, ok := next.(map[string]any)
 		if !ok {
 			return fmt.Errorf("path %s: expected map at part %s, got %T", path, part, next)
 		}
@@ -184,14 +182,14 @@ func setValueByPath(data map[string]interface{}, path string, value interface{})
 	return nil
 }
 
-// deepCopy creates a deep copy of a map[string]interface{}
-func deepCopy(src map[string]interface{}) map[string]interface{} {
-	dst := make(map[string]interface{})
+// deepCopy creates a deep copy of a map[string]any
+func deepCopy(src map[string]any) map[string]any {
+	dst := make(map[string]any)
 	for k, v := range src {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			dst[k] = deepCopy(val)
-		case []interface{}:
+		case []any:
 			dst[k] = deepCopySlice(val)
 		default:
 			dst[k] = v
@@ -200,14 +198,14 @@ func deepCopy(src map[string]interface{}) map[string]interface{} {
 	return dst
 }
 
-// deepCopySlice creates a deep copy of a []interface{}
-func deepCopySlice(src []interface{}) []interface{} {
-	dst := make([]interface{}, len(src))
+// deepCopySlice creates a deep copy of a []any
+func deepCopySlice(src []any) []any {
+	dst := make([]any, len(src))
 	for i, v := range src {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			dst[i] = deepCopy(val)
-		case []interface{}:
+		case []any:
 			dst[i] = deepCopySlice(val)
 		default:
 			dst[i] = v

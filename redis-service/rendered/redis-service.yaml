@@ -100,5 +100,4 @@ spec:
             value: '6379'
           - key: url
             value: redis://default:${password}@${instanceName}-master.${namespace}.svc.cluster.local:6379
-          passwordPath: ''
           existingSecretPath: auth.existingSecret

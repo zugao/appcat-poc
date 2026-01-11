@@ -46,15 +46,16 @@ service_config = {
     # Connection secret specification - defines the structure and content of connection secrets
     # Runtime will substitute variables: ${instanceName}, ${namespace}, ${password}
     connectionSecret = ConnectionSecretSpec {
-        passwordPath = ""                       # Don't inject password - use existingSecret instead
-        existingSecretPath = "auth.existingSecret"  # Tell chart to use our secret
+        # Tell Helm chart to use our secret instead of creating its own
+        existingSecretPath = "auth.existingSecret"
+
         fields = [
             SecretFieldTemplate {
                 key = "password"
                 value = "\${password}"
             }
             SecretFieldTemplate {
-                key = "redis-password"  # Required by Bitnami chart when using existingSecret
+                key = "redis-password"  # Required by Bitnami chart when using auth.existingSecret
                 value = "\${password}"
             }
             SecretFieldTemplate {
