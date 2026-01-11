@@ -1,4 +1,4 @@
-.PHONY: help build-all build-all-push clean kind-create kind-delete crossplane-install setup deploy-platform deploy-service deploy-all test
+.PHONY: help build-all build-all-push build-all-proxy clean kind-create kind-delete crossplane-install setup deploy-platform deploy-service deploy-all test debug-start debug-stop
 
 # Default target
 help:
@@ -9,10 +9,16 @@ help:
 	@echo "    crossplane-install   - Install Crossplane 2.0 via Helm"
 	@echo "    setup                - Create cluster + install Crossplane"
 	@echo ""
-	@echo "  Build:"
+	@echo "  Build (Production):"
 	@echo "    build-all            - Build all layers and load runtime into Kind"
 	@echo "    build-all-push       - Build all layers and push runtime to registry"
 	@echo "    clean                - Clean all build artifacts"
+	@echo ""
+	@echo "  Build (Debug/Proxy Mode):"
+	@echo "    build-all-proxy      - Build with proxy mode (for local debugging)"
+	@echo "    build-all-proxy PROXY_ENDPOINT=<host:port> - Build with custom proxy endpoint"
+	@echo "    debug-start          - Start local function for debugging"
+	@echo "    debug-stop           - Stop local debugging function"
 	@echo ""
 	@echo "  Deploy:"
 	@echo "    deploy-platform      - Deploy platform manifests (Composition, Providers)"
@@ -101,6 +107,35 @@ deploy-service: kube-config
 
 deploy-all: kube-config deploy-platform deploy-service
 	@echo "All manifests deployed!"
+
+# Default proxy endpoint (can be overridden: make build-all-proxy PROXY_ENDPOINT=localhost:9443)
+PROXY_ENDPOINT ?= host.docker.internal:9443
+
+# Proxy/Debug mode build
+build-all-proxy:
+	@echo "Building all layers in proxy/debug mode..."
+	@echo "Building redis-service..."
+	cd redis-service && $(MAKE) build
+	@echo "Building platform with proxy mode enabled..."
+	cd platform && $(MAKE) build-proxy PROXY_ENDPOINT=$(PROXY_ENDPOINT)
+	@echo "Note: Runtime is NOT loaded into Kind (proxy forwards to local endpoint)"
+	@echo "✅ Build complete in proxy mode!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Deploy platform: make deploy-platform"
+	@echo "  2. Start local function: make debug-start"
+	@echo "  3. Test your changes locally"
+
+# Debug helpers
+debug-start:
+	@echo "Starting local composition function for debugging..."
+	@echo "Function will listen on localhost:9443"
+	@echo "Cluster will forward requests to host.docker.internal:9443"
+	cd appcat-runtime && go run . --insecure --addr :9443
+
+debug-stop:
+	@echo "Stopping local debugging function..."
+	@pkill -f "go run.*appcat-runtime" || echo "No debug process found"
 
 # Test target
 test:

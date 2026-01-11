@@ -1,6 +1,10 @@
 # Crossplane Infrastructure
 # Defines the Function package for the composition function
 
+# Configuration: Enable proxy/debug mode with -D proxy_mode=true
+proxy_mode = option("proxy_mode") or False
+proxy_endpoint = option("proxy_endpoint") or "host.docker.internal:9443"
+
 # Crossplane system namespace
 namespace = {
     apiVersion = "v1"
@@ -56,10 +60,7 @@ deploymentruntimeconfig_function= {
                         containers = [
                             {
                                 name = "package-runtime"
-                                args = [
-                                    "--proxy"
-                                    "host.docker.internal:9443"
-                                ]
+                                args = ["--proxy", proxy_endpoint] if proxy_mode else []
                                 image = "ghcr.io/zugao/function-appcat-poc:v0.1.3"
                                 ports = [
                                     {
