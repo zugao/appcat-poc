@@ -1,17 +1,8 @@
 # Redis Service Configuration
 # Contains: chart info, default Helm values, mapping from XRD spec to Helm values, and connection secret template
 
-# SecretFieldTemplate - Single secret field with templated value
-# Supports variable substitution: ${instanceName}, ${namespace}, ${password}
-schema SecretFieldTemplate:
-    key: str        # Secret key name (e.g., "host", "port", "password")
-    value: str      # Template with variables
-
-# ConnectionSecretSpec - Connection secret configuration
-schema ConnectionSecretSpec:
-    fields: [SecretFieldTemplate]  # List of secret fields to create
-    passwordPath?: str             # Optional: Helm value path where password is injected
-    existingSecretPath?: str       # Optional: Helm value path where secret name is injected
+# Import schema definitions from platform
+import platform.defs.composition
 
 # Service configuration (Helm chart info + defaults + mapping)
 service_config = {
@@ -45,28 +36,28 @@ service_config = {
 
     # Connection secret specification - defines the structure and content of connection secrets
     # Runtime will substitute variables: ${instanceName}, ${namespace}, ${password}
-    connectionSecret = ConnectionSecretSpec {
+    connectionSecret = composition.ConnectionSecretSpec {
         # Tell Helm chart to use our secret instead of creating its own
         existingSecretPath = "auth.existingSecret"
 
         fields = [
-            SecretFieldTemplate {
+            composition.SecretFieldTemplate {
                 key = "password"
                 value = "\${password}"
             }
-            SecretFieldTemplate {
+            composition.SecretFieldTemplate {
                 key = "redis-password"  # Required by Bitnami chart when using auth.existingSecret
                 value = "\${password}"
             }
-            SecretFieldTemplate {
+            composition.SecretFieldTemplate {
                 key = "host"
                 value = "\${instanceName}-master.\${namespace}.svc.cluster.local"
             }
-            SecretFieldTemplate {
+            composition.SecretFieldTemplate {
                 key = "port"
                 value = "6379"
             }
-            SecretFieldTemplate {
+            composition.SecretFieldTemplate {
                 key = "url"
                 value = "redis://default:\${password}@\${instanceName}-master.\${namespace}.svc.cluster.local:6379"
             }

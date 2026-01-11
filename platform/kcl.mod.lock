@@ -3,3 +3,6 @@
     name = "redis-service"
     full_name = "redis-service_0.1.0"
     version = "0.1.0"
+    reg = "ghcr.io"
+    repo = "kcl-lang/redis-service"
+    oci_tag = "0.1.0"

@@ -2,5 +2,5 @@
 name = "platform"
 version = "0.1.0"
 
-[dependencies]
-redis-service = { path = "../redis-service" }
+# Platform provides only infrastructure - no service dependencies
+# Services import from platform/defs/ instead
