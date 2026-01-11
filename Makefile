@@ -80,8 +80,12 @@ crossplane-install:
 setup: kind-create crossplane-install
 	@echo "Cluster setup complete!"
 
+# Export kube config
+kube-config:
+	kind get kubeconfig --name appcat-poc > ~/.kube/config
+
 # Deploy targets
-deploy-platform:
+deploy-platform: kube-config
 	@echo "Deploying platform manifests..."
 	kubectl apply -f platform/rendered/
 	@echo "Waiting for providers to be healthy..."
@@ -90,12 +94,12 @@ deploy-platform:
 	kubectl wait --for=condition=Healthy provider/provider-helm --timeout=5m || true
 	@echo "Platform deployed!"
 
-deploy-service:
+deploy-service: kube-config
 	@echo "Deploying service manifests..."
 	kubectl apply -f redis-service/rendered/
 	@echo "Service deployed!"
 
-deploy-all: deploy-platform deploy-service
+deploy-all: kube-config deploy-platform deploy-service
 	@echo "All manifests deployed!"
 
 # Test target

@@ -88,3 +88,17 @@ spec:
           spec.size.memory: master.resources.requests.memory
           spec.size.disk: master.persistence.size
           spec.replicas: master.count
+        connectionSecret:
+          fields:
+          - key: password
+            value: ${password}
+          - key: redis-password
+            value: ${password}
+          - key: host
+            value: ${instanceName}-master.${namespace}.svc.cluster.local
+          - key: port
+            value: '6379'
+          - key: url
+            value: redis://default:${password}@${instanceName}-master.${namespace}.svc.cluster.local:6379
+          passwordPath: ''
+          existingSecretPath: auth.existingSecret

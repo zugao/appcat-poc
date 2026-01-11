@@ -39,6 +39,7 @@ composition = {
                         chart = redis_config.service_config.chart
                         defaultHelmValues = redis_config.service_config.defaultHelmValues
                         mapping = redis_config.service_config.mapping
+                        connectionSecret = redis_config.service_config.connectionSecret
                     }
                 }
             }

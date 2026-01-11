@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
 	fnv1 "github.com/crossplane/function-sdk-go/proto/v1"
@@ -149,10 +150,34 @@ func generateResources(
 		return nil, nil, fmt.Errorf("helmValues not found in merged config")
 	}
 
-	// Inject password directly into Helm values
-	helmValues["auth"] = map[string]interface{}{
-		"enabled":  true,
-		"password": password,
+	// Extract connection secret configuration from input
+	connectionSecret, err := getConnectionSecretConfig(mergedConfig)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get connection secret config: %w", err)
+	}
+
+	// Get secret name early so we can inject it into Helm values if needed
+	secretName, secretNamespace, err := getSecretName(composite, compositeNamespace, log)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get secret name: %w", err)
+	}
+
+	// Inject password into Helm values if passwordPath specified
+	if connectionSecret.PasswordPath != "" {
+		if err := injectPasswordIntoHelmValues(helmValues, connectionSecret.PasswordPath, password); err != nil {
+			return nil, nil, fmt.Errorf("failed to inject password into Helm values: %w", err)
+		}
+	}
+
+	// Inject existing secret name into Helm values if existingSecretPath specified
+	if connectionSecret.ExistingSecretPath != "" {
+		paved := fieldpath.Pave(helmValues)
+		if err := paved.SetValue(connectionSecret.ExistingSecretPath, secretName); err != nil {
+			return nil, nil, fmt.Errorf("failed to inject secret name into Helm values: %w", err)
+		}
+		log.Info("Configured Helm chart to use existing secret",
+			"path", connectionSecret.ExistingSecretPath,
+			"secretName", secretName)
 	}
 
 	log.Info("Creating HelmRelease",
@@ -173,31 +198,33 @@ func generateResources(
 	}
 	resources["helmrelease"] = helmReleaseResource
 
-	// Build connection details; Crossplane will write them to writeConnectionSecretToRef
-	host := fmt.Sprintf("%s-master.%s.svc.cluster.local", instanceName, compositeNamespace)
-	connDetails := map[string][]byte{
-		"password": []byte(password),
-		"host":     []byte(host),
-		"port":     []byte("6379"),
-		"url":      []byte(fmt.Sprintf("redis://:%s@%s:6379", password, host)),
+	// Build variable map for template substitution
+	variables := map[string]string{
+		"instanceName": instanceName,
+		"namespace":    compositeNamespace,
+		"password":     password,
 	}
 
 	// Create Secret as managed resource
-	secretName, secretNamespace, err := getSecretName(composite, compositeNamespace, log)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get secret name: %w", err)
+
+	// Generate connection details from templates
+	connDetails := make(map[string][]byte)
+	secretBuilder := NewSecretBuilder(secretName, secretNamespace)
+
+	for _, field := range connectionSecret.Fields {
+		// Substitute variables in template
+		value := substituteVariables(field.Value, variables)
+		connDetails[field.Key] = []byte(value)
+		secretBuilder = secretBuilder.WithData(field.Key, []byte(value))
 	}
 
 	log.Info("Creating connection Secret",
 		"secretName", secretName,
 		"secretNamespace", secretNamespace,
-		"instanceName", instanceName)
+		"instanceName", instanceName,
+		"fieldsCount", len(connectionSecret.Fields))
 
-	secret := NewSecretBuilder(secretName, secretNamespace).
-		WithData("password", connDetails["password"]).
-		WithData("host", connDetails["host"]).
-		WithData("port", connDetails["port"]).
-		WithData("url", connDetails["url"]).
+	secret := secretBuilder.
 		WithLabel("app.kubernetes.io/managed-by", "crossplane").
 		WithLabel("app.kubernetes.io/instance", instanceName).
 		WithLabel("app.kubernetes.io/component", "connection-secret").
@@ -230,4 +257,66 @@ func toFunctionResource(obj runtime.Object) (*fnv1.Resource, error) {
 	return &fnv1.Resource{
 		Resource: structpbStruct,
 	}, nil
+}
+
+// SecretFieldTemplate represents a single secret field with templated value
+type SecretFieldTemplate struct {
+	Key   string
+	Value string
+}
+
+// ConnectionSecretConfig defines the structure and content of connection secrets
+type ConnectionSecretConfig struct {
+	Fields             []SecretFieldTemplate
+	PasswordPath       string
+	ExistingSecretPath string
+}
+
+// getConnectionSecretConfig extracts connectionSecret configuration from merged config
+func getConnectionSecretConfig(mergedConfig map[string]interface{}) (*ConnectionSecretConfig, error) {
+	secretConfig, ok := mergedConfig["connectionSecret"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("connectionSecret not found in merged config")
+	}
+
+	// Parse fields array
+	fields := []SecretFieldTemplate{}
+	if fieldsRaw, ok := secretConfig["fields"].([]interface{}); ok {
+		for _, fieldRaw := range fieldsRaw {
+			if fieldMap, ok := fieldRaw.(map[string]interface{}); ok {
+				key, _ := fieldMap["key"].(string)
+				value, _ := fieldMap["value"].(string)
+				fields = append(fields, SecretFieldTemplate{Key: key, Value: value})
+			}
+		}
+	}
+
+	passwordPath, _ := secretConfig["passwordPath"].(string)
+	existingSecretPath, _ := secretConfig["existingSecretPath"].(string)
+
+	return &ConnectionSecretConfig{
+		Fields:             fields,
+		PasswordPath:       passwordPath,
+		ExistingSecretPath: existingSecretPath,
+	}, nil
+}
+
+// substituteVariables performs ${var} substitution in template strings
+// Supported variables: ${instanceName}, ${namespace}, ${password}
+func substituteVariables(template string, variables map[string]string) string {
+	result := template
+	for key, value := range variables {
+		placeholder := fmt.Sprintf("${%s}", key)
+		result = strings.ReplaceAll(result, placeholder, value)
+	}
+	return result
+}
+
+// injectPasswordIntoHelmValues injects password at specified path using dot notation
+func injectPasswordIntoHelmValues(helmValues map[string]interface{}, path string, password string) error {
+	if path == "" {
+		return nil // No password path specified, skip injection
+	}
+	paved := fieldpath.Pave(helmValues)
+	return paved.SetValue(path, password)
 }

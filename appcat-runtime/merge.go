@@ -30,7 +30,7 @@ func extractUserSpec(composite *fnv1.Resource) (map[string]interface{}, error) {
 }
 
 // extractServiceConfig extracts service configuration from Composition input
-// Returns a map with: chart, defaultHelmValues, mapping
+// Returns a map with: chart, defaultHelmValues, mapping, connectionSecret
 func extractServiceConfig(input *structpb.Struct) (map[string]interface{}, error) {
 	inputMap := input.AsMap()
 	paved := fieldpath.Pave(inputMap)
@@ -55,12 +55,15 @@ func extractServiceConfig(input *structpb.Struct) (map[string]interface{}, error
 	if _, ok := data["mapping"]; !ok {
 		return nil, fmt.Errorf("mapping not found in service config")
 	}
+	if _, ok := data["connectionSecret"]; !ok {
+		return nil, fmt.Errorf("connectionSecret not found in service config")
+	}
 
 	return data, nil
 }
 
 // mergeConfigs merges service config with user spec using the provided mapping
-// Returns a merged config with: chart, helmValues (merged)
+// Returns a merged config with: chart, helmValues (merged), connectionSecret
 func mergeConfigs(serviceConfig map[string]interface{}, userSpec map[string]interface{}, log logr.Logger) (map[string]interface{}, error) {
 	// Start with service's defaultHelmValues (deep copy)
 	defaultHelmValues, ok := serviceConfig["defaultHelmValues"].(map[string]interface{})
@@ -105,6 +108,11 @@ func mergeConfigs(serviceConfig map[string]interface{}, userSpec map[string]inte
 	result := map[string]interface{}{
 		"chart":      serviceConfig["chart"],
 		"helmValues": helmValues,
+	}
+
+	// Include connectionSecret if present in service config
+	if connectionSecret, ok := serviceConfig["connectionSecret"]; ok {
+		result["connectionSecret"] = connectionSecret
 	}
 
 	return result, nil
