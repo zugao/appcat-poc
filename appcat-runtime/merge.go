@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	fnv1 "github.com/crossplane/function-sdk-go/proto/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/fieldpath"
+	fnv1 "github.com/crossplane/function-sdk-go/proto/v1"
 	"github.com/go-logr/logr"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -119,7 +119,6 @@ func getValueByPath(data map[string]any, path string) (any, error) {
 	current := any(data)
 
 	for i, part := range parts {
-		// Skip "spec" prefix if present
 		if i == 0 && part == "spec" {
 			continue
 		}

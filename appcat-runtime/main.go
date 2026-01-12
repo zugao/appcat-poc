@@ -54,7 +54,7 @@ func main() {
 		fmt.Printf("Starting gRPC server on %s (mTLS: %s)\n", *addr, tlsDir)
 	}
 	if *proxyEndpoint != "" {
-		fmt.Printf("⚠️  PROXY MODE: Forwarding to %s\n", *proxyEndpoint)
+		fmt.Printf("PROXY MODE: Forwarding to %s\n", *proxyEndpoint)
 	}
 
 	if err := function.Serve(mgr, opts...); err != nil {
