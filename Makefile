@@ -80,13 +80,13 @@ deploy:
 	@echo "[1/4] Installing providers and infrastructure..."
 	@kubectl apply -f platform/rendered/ || true
 	@echo ""
-	@echo "[2/4] Waiting for providers to be healthy..."
+	@echo "[2/4] Waiting for provider-helm to be healthy..."
 	@while true; do \
-		if kubectl wait --for=condition=Healthy provider/provider-kubernetes provider/provider-helm --timeout=30s 2>/dev/null; then \
-			echo "Providers are healthy!"; \
+		if kubectl wait --for=condition=Healthy provider/provider-helm --timeout=30s 2>/dev/null; then \
+			echo "Provider-helm is healthy!"; \
 			break; \
 		else \
-			echo "Providers still initializing..."; \
+			echo "Provider-helm still initializing..."; \
 			sleep 10; \
 		fi; \
 	done

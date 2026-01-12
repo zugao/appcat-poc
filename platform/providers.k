@@ -1,17 +1,5 @@
 # Provider Configurations
-# Defines Kubernetes and Helm providers with in-cluster configurations
-
-# Kubernetes Provider
-provider_kubernetes = {
-    apiVersion = "pkg.crossplane.io/v1"
-    kind = "Provider"
-    metadata = {
-        name = "provider-kubernetes"
-    }
-    spec = {
-        package = "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v1.2.0"
-    }
-}
+# Defines Helm provider with in-cluster configuration
 
 # Helm Provider with namespace-scoped Release support
 provider_helm = {
@@ -24,20 +12,6 @@ provider_helm = {
         package = "xpkg.upbound.io/crossplane-contrib/provider-helm:v1.0.6"
         runtimeConfigRef = {
             name = "provider-helm-runtime"
-        }
-    }
-}
-
-# ProviderConfig for Kubernetes (in-cluster)
-providerconfig_kubernetes = {
-    apiVersion = "kubernetes.crossplane.io/v1alpha1"
-    kind = "ProviderConfig"
-    metadata = {
-        name = "default"
-    }
-    spec = {
-        credentials = {
-            source = "InjectedIdentity"
         }
     }
 }
