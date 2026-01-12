@@ -1,37 +1,28 @@
-.PHONY: build clean build-xpkg clean-xpkg
+.PHONY: build push clean
 
 # Package configuration
-XPKG_NAME := redis-service
+XPKG_REGISTRY ?= ghcr.io/zugao/redis-service
 XPKG_VERSION := v0.1.0
-XPKG_OUTPUT := $(XPKG_NAME)-$(XPKG_VERSION).xpkg
-
-build:
-	@echo "Compiling KCL service configuration..."
-	mkdir -p rendered
-	kcl run main.k -D output_type=yaml -o rendered/redis-service.yaml
 
 # Build Crossplane package (xpkg)
-build-xpkg: build
-	@echo "Building Crossplane package: $(XPKG_OUTPUT)"
-	@mkdir -p package
+build:
+	@echo "Building redis-service package..."
+	@mkdir -p rendered package
+	@echo "Rendering KCL configuration..."
+	@kcl run main.k -D output_type=yaml -o rendered/redis-service.yaml
+	@echo "Building xpkg..."
 	@cp crossplane.yaml package/
 	@cp rendered/redis-service.yaml package/
-	@crossplane xpkg build --package-root=package --package-file=$(XPKG_OUTPUT)
-	@echo "✅ Package built: $(XPKG_OUTPUT)"
+	@crossplane xpkg build --package-root=package --package-file=redis-service-$(XPKG_VERSION).xpkg
+	@echo "Package built: redis-service-$(XPKG_VERSION).xpkg"
 
-# Push package to registry (requires XPKG_REGISTRY variable)
-push-xpkg: build-xpkg
-	@if [ -z "$(XPKG_REGISTRY)" ]; then \
-		echo "❌ Error: XPKG_REGISTRY variable not set"; \
-		echo "Usage: make push-xpkg XPKG_REGISTRY=xpkg.upbound.io/myorg/redis-service"; \
-		exit 1; \
-	fi
+# Push package to registry
+push: build
 	@echo "Pushing package to $(XPKG_REGISTRY):$(XPKG_VERSION)"
-	@crossplane xpkg push $(XPKG_REGISTRY):$(XPKG_VERSION) -f $(XPKG_OUTPUT)
-	@echo "✅ Package pushed to $(XPKG_REGISTRY):$(XPKG_VERSION)"
+	@crossplane xpkg push $(XPKG_REGISTRY):$(XPKG_VERSION) -f redis-service-$(XPKG_VERSION).xpkg
+	@echo "Package pushed to $(XPKG_REGISTRY):$(XPKG_VERSION)"
 
+# Clean build artifacts
 clean:
-	rm -rf rendered/*.yaml
-
-clean-xpkg:
-	rm -rf package *.xpkg
+	@rm -rf rendered package *.xpkg
+	@echo "Cleaned build artifacts"

@@ -1,145 +1,140 @@
-.PHONY: help build-all build-all-push build-all-proxy clean kind-create kind-delete crossplane-install setup deploy-platform deploy-service deploy-all test debug-start debug-stop
+.PHONY: help setup build deploy test clean kind-delete build-proxy debug-start debug-stop
+
+# Default proxy endpoint for debug mode
+PROXY_ENDPOINT ?= host.docker.internal:9443
 
 # Default target
 help:
 	@echo "AppCat PoC - Available targets:"
 	@echo ""
-	@echo "  Setup:"
-	@echo "    kind-create          - Create Kind cluster"
-	@echo "    crossplane-install   - Install Crossplane 2.0 via Helm"
-	@echo "    setup                - Create cluster + install Crossplane"
+	@echo "Setup:"
+	@echo "  setup                - Create Kind cluster + install Crossplane"
 	@echo ""
-	@echo "  Build (Production):"
-	@echo "    build-all            - Build all layers and load runtime into Kind"
-	@echo "    build-all-push       - Build all layers and push runtime to registry"
-	@echo "    clean                - Clean all build artifacts"
+	@echo "Build:"
+	@echo "  build                - Build platform, runtime, and redis-service package"
+	@echo "  build-proxy          - Build with proxy mode for local debugging"
 	@echo ""
-	@echo "  Build (Debug/Proxy Mode):"
-	@echo "    build-all-proxy      - Build with proxy mode (for local debugging)"
-	@echo "    build-all-proxy PROXY_ENDPOINT=<host:port> - Build with custom proxy endpoint"
-	@echo "    debug-start          - Start local function for debugging"
-	@echo "    debug-stop           - Stop local debugging function"
+	@echo "Deploy:"
+	@echo "  deploy               - Deploy platform + redis-service configuration"
 	@echo ""
-	@echo "  Deploy:"
-	@echo "    deploy-platform      - Deploy platform manifests (Composition, Providers)"
-	@echo "    deploy-service       - Deploy service manifests (XRD)"
-	@echo "    deploy-all           - Deploy platform + service"
+	@echo "Debug:"
+	@echo "  debug-start          - Start local function for debugging (blocking)"
+	@echo "  debug-stop           - Stop local debugging function"
 	@echo ""
-	@echo "  Test:"
-	@echo "    test                 - Create test Redis instance"
+	@echo "Test:"
+	@echo "  test                 - Create test Redis instance"
 	@echo ""
-	@echo "  Teardown:"
-	@echo "    kind-delete          - Delete Kind cluster"
+	@echo "Clean:"
+	@echo "  clean                - Clean all build artifacts"
+	@echo "  kind-delete          - Delete Kind cluster"
 
-# Build targets
-build-all:
-	@echo "Building all layers..."
-	@echo "Building redis-service..."
-	cd redis-service && $(MAKE) build
-	@echo "Building platform..."
-	cd platform && $(MAKE) build
-	@echo "Building appcat-runtime and loading into Kind..."
-	cd appcat-runtime && $(MAKE) kind-load
-	@echo "✅ Build complete!"
-
-build-all-push:
-	@echo "Building all layers and pushing to registry..."
-	@echo "Building redis-service..."
-	cd redis-service && $(MAKE) build
-	@echo "Building platform..."
-	cd platform && $(MAKE) build
-	@echo "Building and pushing appcat-runtime..."
-	cd appcat-runtime && $(MAKE) xpkg-push
-	@echo "✅ Build and push complete!"
-
-clean:
-	@echo "Cleaning build artifacts..."
-	cd redis-service && $(MAKE) clean
-	cd platform && $(MAKE) clean
-	cd appcat-runtime && $(MAKE) clean
-	@echo "Clean complete!"
-
-# Kind cluster targets
-kind-create:
+# Setup: Create cluster and install Crossplane
+setup:
 	@echo "Creating Kind cluster 'appcat-poc'..."
-	kind create cluster --name appcat-poc
-	@echo "Kind cluster created!"
-
-kind-delete:
-	@echo "Deleting Kind cluster 'appcat-poc'..."
-	kind delete cluster --name appcat-poc
-	@echo "Kind cluster deleted!"
-
-# Crossplane installation
-crossplane-install:
+	@kind create cluster --name appcat-poc
 	@echo "Installing Crossplane 2.0..."
-	kind get kubeconfig --name appcat-poc > ~/.kube/config
-	helm repo add crossplane-stable https://charts.crossplane.io/stable
-	helm repo update
-	helm install crossplane crossplane-stable/crossplane \
+	@helm repo add crossplane-stable https://charts.crossplane.io/stable
+	@helm repo update
+	@helm install crossplane crossplane-stable/crossplane \
 		--namespace crossplane-system \
 		--create-namespace \
 		--wait
-	@echo "Crossplane installed!"
+	@echo "✅ Cluster setup complete!"
 
-# Combined setup
-setup: kind-create crossplane-install
-	@echo "Cluster setup complete!"
+# Build: Platform + Runtime + Service Package
+build:
+	@echo "Building all components..."
+	@echo ""
+	@echo "[1/3] Building platform..."
+	@cd platform && $(MAKE) build
+	@echo ""
+	@echo "[2/3] Building appcat-runtime and loading into Kind..."
+	@cd appcat-runtime && $(MAKE) kind-load
+	@echo ""
+	@echo "[3/3] Building redis-service package..."
+	@cd redis-service && $(MAKE) build
+	@echo ""
+	@echo "Build complete!"
 
-# Export kube config
-kube-config:
-	kind get kubeconfig --name appcat-poc > ~/.kube/config
-
-# Deploy targets
-deploy-platform: kube-config
-	@echo "Deploying platform manifests..."
-	kubectl apply -f platform/rendered/
-	@echo "Waiting for providers to be healthy..."
-	@echo "Note: This may take a few minutes..."
-	kubectl wait --for=condition=Healthy provider/provider-kubernetes --timeout=5m || true
-	kubectl wait --for=condition=Healthy provider/provider-helm --timeout=5m || true
-	@echo "Platform deployed!"
-
-deploy-service: kube-config
-	@echo "Deploying service manifests..."
-	kubectl apply -f redis-service/rendered/
-	@echo "Service deployed!"
-
-deploy-all: kube-config deploy-platform deploy-service
-	@echo "All manifests deployed!"
-
-# Default proxy endpoint (can be overridden: make build-all-proxy PROXY_ENDPOINT=localhost:9443)
-PROXY_ENDPOINT ?= host.docker.internal:9443
-
-# Proxy/Debug mode build
-build-all-proxy:
-	@echo "Building all layers in proxy/debug mode..."
-	@echo "Building redis-service..."
-	cd redis-service && $(MAKE) build
-	@echo "Building platform with proxy mode enabled..."
-	cd platform && $(MAKE) build-proxy PROXY_ENDPOINT=$(PROXY_ENDPOINT)
-	@echo "Note: Runtime is NOT loaded into Kind (proxy forwards to local endpoint)"
-	@echo "✅ Build complete in proxy mode!"
+# Build with proxy mode for debugging
+build-proxy:
+	@echo "Building in proxy/debug mode..."
+	@echo ""
+	@echo "[1/2] Building platform with proxy enabled (endpoint: $(PROXY_ENDPOINT))..."
+	@cd platform && $(MAKE) build-proxy PROXY_ENDPOINT=$(PROXY_ENDPOINT)
+	@echo ""
+	@echo "[2/2] Building redis-service package..."
+	@cd redis-service && $(MAKE) build
+	@echo ""
+	@echo "Build complete in proxy mode!"
 	@echo ""
 	@echo "Next steps:"
-	@echo "  1. Deploy platform: make deploy-platform"
+	@echo "  1. Deploy: make deploy"
 	@echo "  2. Start local function: make debug-start"
-	@echo "  3. Test your changes locally"
 
-# Debug helpers
+# Deploy: Platform infrastructure + Redis service configuration
+deploy:
+	@kind get kubeconfig --name appcat-poc > ~/.kube/config
+	@echo "Deploying platform..."
+	@echo ""
+	@echo "[1/4] Installing providers and infrastructure..."
+	@kubectl apply -f platform/rendered/ || true
+	@echo ""
+	@echo "[2/4] Waiting for providers to be healthy..."
+	@while true; do \
+		if kubectl wait --for=condition=Healthy provider/provider-kubernetes provider/provider-helm --timeout=30s 2>/dev/null; then \
+			echo "Providers are healthy!"; \
+			break; \
+		else \
+			echo "Providers still initializing..."; \
+			sleep 10; \
+		fi; \
+	done
+	@echo ""
+	@echo "[3/4] Applying ProviderConfigs..."
+	@kubectl apply -f platform/rendered/
+	@echo ""
+	@echo "Platform deployment complete!"
+	@echo ""
+	@echo "[4/4] Deploying redis-service configuration..."
+	@kubectl apply -f redis-service/configuration/
+	@echo ""
+	@echo "Service Deployment complete!"
+
+
+# Test: Create Redis instance
+test:
+	@kind get kubeconfig --name appcat-poc > ~/.kube/config
+	@echo "Creating test Redis instance..."
+	@kubectl apply -f examples/redis-instance.yaml
+	@echo "Test instance created!"
+	@echo ""
+	@echo "Check status:"
+	@echo "  kubectl get xvshnredis"
+	@echo "  kubectl get release -n default"
+
+# Debug: Start local composition function
 debug-start:
 	@echo "Starting local composition function for debugging..."
 	@echo "Function will listen on localhost:9443"
-	@echo "Cluster will forward requests to host.docker.internal:9443"
-	cd appcat-runtime && go run . --insecure --addr :9443
+	@echo "Cluster will forward requests to $(PROXY_ENDPOINT)"
+	@cd appcat-runtime && go run . --insecure --addr :9443
 
+# Debug: Stop local function
 debug-stop:
 	@echo "Stopping local debugging function..."
 	@pkill -f "go run.*appcat-runtime" || echo "No debug process found"
 
-# Test target
-test:
-	@echo "Creating test Redis instance..."
-	@kubectl apply -f examples/redis-instance.yaml
-	@echo "Test instance created!"
-	@echo "Check status with: kubectl get xvshnredis"
+# Clean: Remove build artifacts
+clean:
+	@echo "Cleaning build artifacts..."
+	@cd redis-service && $(MAKE) clean
+	@cd platform && $(MAKE) clean
+	@cd appcat-runtime && $(MAKE) clean
+	@echo "Clean complete!"
+
+# Teardown: Delete Kind cluster
+kind-delete:
+	@echo "Deleting Kind cluster 'appcat-poc'..."
+	@kind delete cluster --name appcat-poc
+	@echo "Kind cluster deleted!"
