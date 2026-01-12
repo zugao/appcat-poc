@@ -1,7 +1,7 @@
 .PHONY: build kind-load clean
 
 IMAGE ?= ghcr.io/zugao/function-appcat-poc
-TAG ?= v0.1.3
+TAG ?= v0.1.0
 KIND_CLUSTER ?= appcat-poc
 
 # Auto-detect platform
