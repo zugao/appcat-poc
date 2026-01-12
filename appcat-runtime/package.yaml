@@ -1,0 +1,14 @@
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: function-appcat-poc
+  annotations:
+    meta.crossplane.io/description: "Generic AppCat composition function for runtime config merging"
+    meta.crossplane.io/source: "https://github.com/vshn/appcat-poc"
+spec:
+  crossplane:
+    version: ">=v2.0.0-0"
+  capabilities:
+    - Composition
+  controller:
+    image: ghcr.io/zugao/function-appcat-poc:v0.1.0

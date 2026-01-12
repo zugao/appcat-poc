@@ -1,0 +1,48 @@
+apiVersion: meta.pkg.crossplane.io/v1
+kind: Configuration
+metadata:
+  name: redis-service
+  annotations:
+    meta.crossplane.io/maintainer: VSHN Team
+    meta.crossplane.io/source: github.com/zugao/appcat-poc
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/repository: ghcr.io/zugao/redis-service
+    meta.crossplane.io/description: |
+      Redis service composition for AppCat Framework 2.0.
+      Provides a namespace-scoped XVSHNRedis composite resource that deploys
+      Redis using Bitnami Helm chart with configurable size and replicas.
+    meta.crossplane.io/readme: |
+      # Redis Service for AppCat
+
+      This package provides a Redis service composition that:
+      - Deploys Redis using the Bitnami Helm chart
+      - Supports configurable CPU, memory, and disk sizing
+      - Creates connection secrets with host, port, password, and URL
+      - Uses the generic AppCat composition function
+
+      ## Usage
+
+      ```yaml
+      apiVersion: appcat.vshn.io/v1alpha1
+      kind: XVSHNRedis
+      metadata:
+        name: my-redis
+        namespace: default
+      spec:
+        size:
+          cpu: "500m"
+          memory: "2Gi"
+          disk: "16Gi"
+        replicas: 1
+        writeConnectionSecretToRef:
+          name: redis-credentials
+          namespace: default
+      ```
+spec:
+  crossplane:
+    version: ">=v1.2.0"
+  dependsOn:
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-helm
+      version: ">=v1.0.6"
+    - function: ghcr.io/zugao/function-appcat-poc
+      version: ">=v0.1.3"
