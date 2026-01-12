@@ -1,5 +1,4 @@
-# Composition-related type schemas for AppCat Framework 2.0
-# Service Maintainers import these schemas to define service configurations
+# Composition schemas for AppCat services
 
 # SecretFieldTemplate - Single secret field with templated value
 # Supports variable substitution: ${instanceName}, ${namespace}, ${password}

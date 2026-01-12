@@ -27,7 +27,6 @@ replicas_schema = {
 }
 
 # write_connection_secret_ref_schema - Standard secret ref for all services
-# Services MUST use this exact schema for writeConnectionSecretToRef
 write_connection_secret_ref_schema = {
     type = "object"
     properties = {
