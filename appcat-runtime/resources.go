@@ -14,18 +14,21 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// getOrGeneratePassword retrieves existing password from observed HelmRelease or generates new one
+// getOrGeneratePassword retrieves existing password from observed Secret or generates new one
 func getOrGeneratePassword(observedResources map[string]*fnv1.Resource, instanceName string, log logr.Logger) (string, error) {
-	// Check for existing HelmRelease in observed resources
-	if helmResource, exists := observedResources["helmrelease"]; exists && helmResource != nil {
-		helmMap := helmResource.Resource.AsMap()
-		paved := fieldpath.Pave(helmMap)
+	// Check for existing Secret in observed resources
+	if secretResource, exists := observedResources["secret"]; exists && secretResource != nil {
+		secretMap := secretResource.Resource.AsMap()
+		paved := fieldpath.Pave(secretMap)
 
-		// Try to extract existing password from HelmRelease values
-		if passwordRaw, err := paved.GetValue("spec.forProvider.values.auth.password"); err == nil {
-			if password, ok := passwordRaw.(string); ok && password != "" {
-				log.Info("Reusing existing password from HelmRelease", "instance", instanceName)
-				return password, nil
+		// Try to extract existing password from Secret data
+		if dataRaw, err := paved.GetValue("data.password"); err == nil {
+			if passwordBase64, ok := dataRaw.(string); ok && passwordBase64 != "" {
+				// Decode base64 (Kubernetes stores Secret data as base64)
+				if passwordBytes, err := base64.StdEncoding.DecodeString(passwordBase64); err == nil {
+					log.Info("Reusing existing password from Secret", "instance", instanceName)
+					return string(passwordBytes), nil
+				}
 			}
 		}
 	}
@@ -66,8 +69,8 @@ func getSecretName(composite *fnv1.Resource, compositeNamespace string, log logr
 	}
 
 	// Extract name and namespace
-	secretName := compositeName       // fallback
-	secretNamespace := compositeNamespace // fallback
+	secretName := compositeName
+	secretNamespace := compositeNamespace
 
 	if name, ok := secretRef["name"].(string); ok && name != "" {
 		secretName = name
