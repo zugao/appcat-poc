@@ -7,6 +7,7 @@ XPKG_VERSION := v0.1.0
 # Build Crossplane package (xpkg)
 build:
 	@echo "Building redis-service package..."
+	@rm -rf rendered package *.xpkg
 	@mkdir -p rendered package
 	@echo "Rendering KCL configuration..."
 	@kcl run main.k -D output_type=yaml -o rendered/redis-service.yaml

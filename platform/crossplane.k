@@ -22,7 +22,7 @@ function_package = {
         name = "function-appcat-poc"
     }
     spec = {
-        package = "ghcr.io/zugao/function-appcat-poc:v0.1.3"
+        package = "ghcr.io/zugao/function-appcat-poc:v0.1.0"
         runtimeConfigRef = {
             name = "function-appcat-poc"
         }
@@ -61,7 +61,7 @@ deploymentruntimeconfig_function= {
                             {
                                 name = "package-runtime"
                                 args = ["--proxy", proxy_endpoint] if proxy_mode else []
-                                image = "ghcr.io/zugao/function-appcat-poc:v0.1.3"
+                                image = "ghcr.io/zugao/function-appcat-poc:v0.1.0"
                                 ports = [
                                     {
                                         name = "grpc"

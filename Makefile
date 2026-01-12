@@ -51,8 +51,8 @@ build:
 	@echo "[2/3] Building appcat-runtime and loading into Kind..."
 	@cd appcat-runtime && $(MAKE) kind-load
 	@echo ""
-	@echo "[3/3] Building redis-service package..."
-	@cd redis-service && $(MAKE) build
+	@echo "[3/3] Building redis-service package and loading into Kind..."
+	@cd redis-service && $(MAKE) push
 	@echo ""
 	@echo "Build complete!"
 
@@ -63,8 +63,8 @@ build-proxy:
 	@echo "[1/2] Building platform with proxy enabled (endpoint: $(PROXY_ENDPOINT))..."
 	@cd platform && $(MAKE) build-proxy PROXY_ENDPOINT=$(PROXY_ENDPOINT)
 	@echo ""
-	@echo "[2/2] Building redis-service package..."
-	@cd redis-service && $(MAKE) build
+	@echo "[2/2] Building redis-service package and loading into Kind..."
+	@cd redis-service && $(MAKE) push
 	@echo ""
 	@echo "Build complete in proxy mode!"
 	@echo ""
