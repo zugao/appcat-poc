@@ -15,6 +15,5 @@ import providers
     providers.clusterrolebinding_helm,
     providers.deploymentruntimeconfig_helm,
     providers.provider_helm,
-    providers.providerconfig_helm,
     providers.clusterproviderconfig_helm,
 ]
