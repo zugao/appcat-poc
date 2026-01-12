@@ -1,7 +1,9 @@
 # Redis Service XRD Definition
-# Defines the Composite Resource (XR) API for VSHNRedis
+# Defines the Composite Resource (XR) API for XVSHNRedis
 
-# XRD for VSHNRedis Composite Resource
+import platform.defs.xrd as platform_xrd
+
+# XRD for XVSHNRedis Composite Resource
 xrd = {
     apiVersion = "apiextensions.crossplane.io/v2"
     kind = "CompositeResourceDefinition"
@@ -27,48 +29,12 @@ xrd = {
                     openAPIV3Schema = {
                         type = "object"
                         properties = {
-                            # COMPOSITE SPEC - direct user parameters
                             spec = {
                                 type = "object"
                                 properties = {
-                                    # Resource size specification
-                                    size = {
-                                        type = "object"
-                                        properties = {
-                                            cpu = {
-                                                type = "string"
-                                                description = "CPU request (e.g., '500m', '1000m')"
-                                            }
-                                            memory = {
-                                                type = "string"
-                                                description = "Memory request (e.g., '2Gi', '4Gi')"
-                                            }
-                                            disk = {
-                                                type = "string"
-                                                description = "Disk size (e.g., '16Gi', '32Gi')"
-                                            }
-                                        }
-                                    }
-                                    # Replica count
-                                    replicas = {
-                                        type = "integer"
-                                        description = "Number of replicas"
-                                        minimum = 1
-                                    }
-                                    # Optional: where Crossplane should write connection secrets
-                                    writeConnectionSecretToRef = {
-                                        type = "object"
-                                        properties = {
-                                            name = {
-                                                type = "string"
-                                                description = "Name of the connection secret to write"
-                                            }
-                                            namespace = {
-                                                type = "string"
-                                                description = "Namespace for the connection secret"
-                                            }
-                                        }
-                                    }
+                                    size = platform_xrd.size_spec_schema
+                                    replicas = platform_xrd.replicas_schema
+                                    writeConnectionSecretToRef = platform_xrd.write_connection_secret_ref_schema
                                 }
                             }
                             status = {

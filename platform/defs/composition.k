@@ -12,4 +12,4 @@ schema SecretFieldTemplate:
 schema ConnectionSecretSpec:
     fields: [SecretFieldTemplate] # List of secret fields to create
     passwordPath?: str            # Optional: Helm value path where password is injected (e.g., "auth.password")
-    existingSecretPath?: str      # Optional: Helm value path where secret name is injected (e.g., "auth.existingSecret")
+    secretNamePath?: str          # Optional: Helm value path where secret name is injected (e.g., "auth.existingSecret")

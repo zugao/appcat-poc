@@ -1,13 +1,10 @@
-# Redis Service Configuration
-# Contains: chart info, default Helm values, mapping from XRD spec to Helm values, and connection secret template
-
 # Import schema definitions from platform
 import platform.defs.composition
+import platform.defs.helm
 
-# Service configuration (Helm chart info + defaults + mapping)
+# Service configuration - uses platform-enforced schemas
 service_config = {
-    # Bitnami Redis Helm chart information
-    chart = {
+    chart = helm.ChartSpec {
         repository = "https://charts.bitnami.com/bitnami"
         name = "redis"
         defaultVersion = "18.0.0"
@@ -20,7 +17,6 @@ service_config = {
             enabled = True
         }
         image = {
-            # Use a tag that is known to exist in Docker Hub; the chart's default tag was pruned
             tag = "latest"
         }
     }
@@ -38,7 +34,7 @@ service_config = {
     # Runtime will substitute variables: ${instanceName}, ${namespace}, ${password}
     connectionSecret = composition.ConnectionSecretSpec {
         # Tell Helm chart to use our secret instead of creating its own
-        existingSecretPath = "auth.existingSecret"
+        secretNamePath = "auth.existingSecret"
 
         fields = [
             composition.SecretFieldTemplate {

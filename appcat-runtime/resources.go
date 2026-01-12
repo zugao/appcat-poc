@@ -155,9 +155,9 @@ func generateResources(
 				return nil, nil, fmt.Errorf("failed to inject password: %w", err)
 			}
 		}
-		if connectionSecret.ExistingSecretPath != "" {
+		if connectionSecret.SecretNamePath != "" {
 			paved := fieldpath.Pave(helmValues)
-			if err := paved.SetValue(connectionSecret.ExistingSecretPath, secretName); err != nil {
+			if err := paved.SetValue(connectionSecret.SecretNamePath, secretName); err != nil {
 				return nil, nil, fmt.Errorf("failed to inject secret name: %w", err)
 			}
 		}
@@ -271,9 +271,9 @@ type SecretFieldTemplate struct {
 
 // ConnectionSecretConfig defines the structure and content of connection secrets
 type ConnectionSecretConfig struct {
-	Fields             []SecretFieldTemplate
-	PasswordPath       string
-	ExistingSecretPath string
+	Fields         []SecretFieldTemplate
+	PasswordPath   string
+	SecretNamePath string
 }
 
 // getConnectionSecretConfig extracts connectionSecret configuration from merged config
@@ -296,12 +296,12 @@ func getConnectionSecretConfig(mergedConfig map[string]any) (*ConnectionSecretCo
 	}
 
 	passwordPath, _ := secretConfig["passwordPath"].(string)
-	existingSecretPath, _ := secretConfig["existingSecretPath"].(string)
+	secretNamePath, _ := secretConfig["secretNamePath"].(string)
 
 	return &ConnectionSecretConfig{
-		Fields:             fields,
-		PasswordPath:       passwordPath,
-		ExistingSecretPath: existingSecretPath,
+		Fields:         fields,
+		PasswordPath:   passwordPath,
+		SecretNamePath: secretNamePath,
 	}, nil
 }
 
