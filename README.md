@@ -24,7 +24,7 @@ https://miro.com/app/board/uXjVJiczJH0=/
 - [Helm](https://helm.sh/docs/intro/install/) v3.12+
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) v1.27+
 - [KCL](https://kcl-lang.io/docs/user_docs/getting-started/install) v0.10+
-- [Crossplane CLI](https://docs.crossplane.io/latest/cli/) v1.14+
+- [Crossplane CLI](https://docs.crossplane.io/latest/cli/) v2.1+
 - [Go](https://go.dev/doc/install) 1.21+ (for local debugging)
 
 ## Quick Start
@@ -124,29 +124,7 @@ make debug-start
 make debug-stop
 ```
 
-The function pod forwards requests to `localhost:9443`. Custom endpoint: `make build-proxy PROXY_ENDPOINT=122.18.0.1:9443`
-
-## Project Structure
-
-```
-appcat-poc/
-├── Makefile                    # Root orchestration
-├── appcat-runtime/             # Composition function (Go)
-│   ├── main.go
-│   ├── manager.go              # Request handler
-│   ├── merge.go                # Config merging
-│   └── resources.go            # Resource generation
-├── platform/                   # Platform infrastructure (KCL)
-│   ├── crossplane.k            # Function deployment
-│   └── providers.k             # Provider installations
-└── redis-service/              # Redis service (KCL)
-    ├── config.k                # Service configuration
-    ├── service.k               # XRD definition
-    ├── composition.k           # Composition
-    ├── crossplane.yaml         # Package metadata
-    └── configuration/          # Deployment config
-        └── config.yaml         # Configuration manifest
-```
+The function pod forwards requests to `host.docker.internal:9443`. Custom endpoint: `make build-proxy PROXY_ENDPOINT=127.18.0.1:9443`
 
 ## Makefile Targets
 
